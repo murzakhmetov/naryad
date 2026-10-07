@@ -84,6 +84,24 @@ class WorkOrderStore {
       this.notify();
     });
 
+    setInterval(async () => {
+      try {
+        const fresh = await supabaseSync.fetchActiveOrders();
+        if (fresh && fresh.length > 0) {
+          const currentCount = this.activeOrders.length;
+          const freshCount = fresh.length;
+          const hasDiff = currentCount !== freshCount || fresh.some((fo, idx) => {
+            const co = this.activeOrders[idx];
+            return !co || co.id !== fo.id || co.status !== fo.status;
+          });
+          if (hasDiff) {
+            this.activeOrders = fresh;
+            this.notify();
+          }
+        }
+      } catch (_) {}
+    }, 2500);
+
     this.unsubEmployees = supabaseSync.subscribeToEmployees((emps) => {
       this.employees = emps;
       this.notify();

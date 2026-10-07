@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -104,6 +105,44 @@ class WorkOrderModel {
     'aiVerdict': aiVerdict,
     'aiNotes': aiNotes,
     'isOverdue': isOverdue,
+  };
+
+  Map<String, dynamic> toSupabaseMap() => {
+    'id': id,
+    'number': number,
+    'type': priority == 'emergency' ? 'emergency' : 'planned',
+    'title': title,
+    'description': description,
+    'workshop_id': 'ws_crushing',
+    'equipment_id': 'eq_pump_grt',
+    'equipment_name': equipmentName,
+    'assigned_worker_id': assignedWorkerId,
+    'assigned_worker_name': assignedWorkerName,
+    'issued_by_master_id': 'master_1',
+    'issued_by_master_name': 'Сатпаев Ерлан Касымович',
+    'priority': priority,
+    'created_at': createdAt,
+    'deadline_at': deadlineAt,
+    'status': status,
+    'photo_before_url': photoBeforeUrl,
+    'photo_after_url': photoAfterUrl,
+    'fault_code': faultCode ?? 'М-02',
+    'performed_work_description': performedWork,
+    'worker_comment': workerComment,
+    'is_overdue': isOverdue,
+    'overdue_minutes': isOverdue ? 15 : 0,
+    'materials_spent': [],
+    'status_history': [],
+    'ai_evaluation': aiVerdict != null ? {
+      'verdict': aiVerdict == 'Принято' ? 'approved' : 'rework_needed',
+      'score': aiScore,
+      'explanation': aiNotes ?? '',
+      'workDescriptionMatch': true,
+      'materialLogicCheck': aiVerdict == 'Принято',
+      'timeNormMatch': true,
+      'workerFeedback': aiNotes ?? '',
+      'masterNotes': aiNotes ?? '',
+    } : null,
   };
 
   factory WorkOrderModel.fromJson(Map<String, dynamic> json) => WorkOrderModel(
@@ -392,12 +431,53 @@ class _MainScreenState extends State<MainScreen> {
   final List<WorkOrderModel> _orders = [];
   final List<EmployeeData> _staff = List.from(defaultStaff);
   late RealtimeChannel _channel;
+  Timer? _deadlineTimer;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _initInitialOrders();
     _setupSupabaseRealtime();
+    _fetchOrdersFromSupabase();
+    _deadlineTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      final now = DateTime.now();
+      for (final o in _orders) {
+        if (o.status != 'completed' && o.status != 'closed') {
+          final deadline = DateTime.tryParse(o.deadlineAt);
+          if (deadline != null && now.isAfter(deadline) && !o.isOverdue) {
+            setState(() {
+              o.isOverdue = true;
+            });
+            _broadcastOrder(o);
+            _showNotification('Внимание: Просрочка ИИ!', 'Наряд ${o.number} (${o.equipmentName}) просрочен! ИИ отправил эскалацию мастеру и исполнителю.');
+          }
+        }
+      }
+    });
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      _fetchOrdersFromSupabase();
+    });
+  }
+
+  Future<void> _fetchOrdersFromSupabase() async {
+    try {
+      final res = await supabase.from('work_orders').select().order('created_at', ascending: false);
+      if (res.isNotEmpty && mounted) {
+        setState(() {
+          for (final row in res) {
+            final o = WorkOrderModel.fromJson(Map<String, dynamic>.from(row));
+            final idx = _orders.indexWhere((x) => x.id == o.id);
+            if (idx != -1) {
+              _orders[idx] = o;
+            } else {
+              _orders.insert(0, o);
+            }
+            _updateStaffState(o);
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   void _initInitialOrders() {
@@ -445,16 +525,18 @@ class _MainScreenState extends State<MainScreen> {
       callback: (payload) {
         if (payload['order'] != null) {
           final updated = WorkOrderModel.fromJson(Map<String, dynamic>.from(payload['order']));
-          setState(() {
-            final idx = _orders.indexWhere((o) => o.id == updated.id);
-            if (idx != -1) {
-              _orders[idx] = updated;
-            } else {
-              _orders.insert(0, updated);
-            }
-            _updateStaffState(updated);
-          });
-          _checkNotifications(updated);
+          if (mounted) {
+            setState(() {
+              final idx = _orders.indexWhere((o) => o.id == updated.id);
+              if (idx != -1) {
+                _orders[idx] = updated;
+              } else {
+                _orders.insert(0, updated);
+              }
+              _updateStaffState(updated);
+            });
+            _checkNotifications(updated);
+          }
         }
       },
     ).subscribe();
@@ -477,6 +559,8 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
+    _deadlineTimer?.cancel();
+    _pollTimer?.cancel();
     _channel.unsubscribe();
     super.dispose();
   }
@@ -491,6 +575,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   void _showNotification(String title, String body) {
+    if (!mounted) return;
     showCupertinoDialog(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
@@ -508,15 +593,18 @@ class _MainScreenState extends State<MainScreen> {
 
   void _broadcastOrder(WorkOrderModel order) {
     _channel.sendBroadcastMessage(event: 'update_order', payload: {'order': order.toJson()});
-    setState(() {
-      final idx = _orders.indexWhere((o) => o.id == order.id);
-      if (idx != -1) {
-        _orders[idx] = order;
-      } else {
-        _orders.insert(0, order);
-      }
-      _updateStaffState(order);
-    });
+    if (mounted) {
+      setState(() {
+        final idx = _orders.indexWhere((o) => o.id == order.id);
+        if (idx != -1) {
+          _orders[idx] = order;
+        } else {
+          _orders.insert(0, order);
+        }
+        _updateStaffState(order);
+      });
+    }
+    supabase.from('work_orders').upsert(order.toSupabaseMap()).then((_) {}).catchError((_) {});
   }
 
   Future<String?> _uploadPhoto(ImageSource source) async {
@@ -791,6 +879,7 @@ class _MainScreenState extends State<MainScreen> {
   void _showCreateOrderDialog() {
     String selectedEq = equipmentNames[0];
     String selectedPriority = 'emergency';
+    int deadlineMinutes = 120;
     final descCtrl = TextEditingController(text: 'Течь сальника рабочего колеса насоса 1ГрТ. Устранить до запуска секции.');
     String? photoUrl;
     bool isUploading = false;
@@ -802,7 +891,7 @@ class _MainScreenState extends State<MainScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Container(
-          height: MediaQuery.of(context).size.height * 0.88,
+          height: MediaQuery.of(context).size.height * 0.90,
           color: CupertinoColors.white,
           child: SafeArea(
             child: Padding(
@@ -865,7 +954,31 @@ class _MainScreenState extends State<MainScreen> {
                           decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFCBD5E1))),
                         ),
                         const SizedBox(height: 14),
-                        const Text('3. Фото дефекта ДО ремонта (бакет some):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('3. Нормативный срок (SLA):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                            Row(
+                              children: [
+                                CupertinoButton(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  color: deadlineMinutes == 120 ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+                                  onPressed: () => setModalState(() => deadlineMinutes = 120),
+                                  child: Text('2 часа', style: TextStyle(fontSize: 11, color: deadlineMinutes == 120 ? CupertinoColors.white : const Color(0xFF475569), fontWeight: FontWeight.bold)),
+                                ),
+                                const SizedBox(width: 6),
+                                CupertinoButton(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  color: deadlineMinutes == 1 ? const Color(0xFFDC2626) : const Color(0xFFE2E8F0),
+                                  onPressed: () => setModalState(() => deadlineMinutes = 1),
+                                  child: Text('1 мин (демо)', style: TextStyle(fontSize: 11, color: deadlineMinutes == 1 ? CupertinoColors.white : const Color(0xFF475569), fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        const Text('4. Фото дефекта ДО ремонта:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
                         const SizedBox(height: 6),
                         Row(
                           children: [
@@ -881,21 +994,57 @@ class _MainScreenState extends State<MainScreen> {
                                     isUploading = false;
                                   });
                                 },
-                                child: Row(
+                                child: const Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    const Icon(CupertinoIcons.camera_fill, size: 16, color: Color(0xFF2563EB)),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      isUploading ? 'Загрузка...' : (photoUrl != null ? 'Фото прикреплено' : 'Сфотографировать'),
-                                      style: const TextStyle(color: Color(0xFF2563EB), fontSize: 13, fontWeight: FontWeight.w600),
-                                    ),
+                                    Icon(CupertinoIcons.camera_fill, size: 16, color: Color(0xFF2563EB)),
+                                    SizedBox(width: 6),
+                                    Text('Камера', style: TextStyle(color: Color(0xFF2563EB), fontSize: 13, fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: CupertinoButton(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                color: const Color(0xFFF1F5F9),
+                                onPressed: isUploading ? null : () async {
+                                  setModalState(() => isUploading = true);
+                                  final url = await _uploadPhoto(ImageSource.gallery);
+                                  setModalState(() {
+                                    photoUrl = url;
+                                    isUploading = false;
+                                  });
+                                },
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(CupertinoIcons.photo_fill, size: 16, color: Color(0xFF475569)),
+                                    SizedBox(width: 6),
+                                    Text('Галерея', style: TextStyle(color: Color(0xFF475569), fontSize: 13, fontWeight: FontWeight.w600)),
                                   ],
                                 ),
                               ),
                             ),
                           ],
                         ),
+                        if (isUploading)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 6),
+                            child: Center(child: Text('Загрузка в хранилище...', style: TextStyle(fontSize: 11, color: Color(0xFF2563EB)))),
+                          )
+                        else if (photoUrl != null)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 6),
+                            child: Row(
+                              children: [
+                                Icon(CupertinoIcons.check_mark_circled_solid, size: 14, color: Color(0xFF16A34A)),
+                                SizedBox(width: 4),
+                                Text('Фото дефекта успешно прикреплено', style: TextStyle(fontSize: 11, color: Color(0xFF16A34A), fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
                         const SizedBox(height: 14),
                         Container(
                           padding: const EdgeInsets.all(12),
@@ -929,13 +1078,23 @@ class _MainScreenState extends State<MainScreen> {
                         workshopName: 'Участок обогащения',
                         priority: selectedPriority,
                         createdAt: DateTime.now().toIso8601String(),
-                        deadlineAt: DateTime.now().add(const Duration(hours: 2)).toIso8601String(),
+                        deadlineAt: DateTime.now().add(Duration(minutes: deadlineMinutes)).toIso8601String(),
                         status: 'issued',
                         assignedWorkerId: assigned.id,
                         assignedWorkerName: assigned.fullName,
                         photoBeforeUrl: photoUrl ?? 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80',
                       );
                       _broadcastOrder(newOrder);
+                      supabase.from('notifications').insert({
+                        'id': 'notif_${DateTime.now().millisecondsSinceEpoch}',
+                        'employee_id': assigned.id,
+                        'order_id': newOrder.id,
+                        'order_number': newOrder.number,
+                        'type': 'emergency',
+                        'title': 'Новый наряд ${newOrder.number}',
+                        'message': '${newOrder.title}. Назначен вам. Откройте в приложении.',
+                        'is_read': false,
+                      }).then((_) {}).catchError((_) {});
                       Navigator.pop(ctx);
                       _showNotification('Наряд выдан!', 'Наряд ${newOrder.number} отправлен ${assigned.fullName}.');
                     },
@@ -1200,20 +1359,60 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
                           decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFCBD5E1))),
                         ),
                         const SizedBox(height: 14),
-                        const Text('2. Фото ПОСЛЕ ремонта (бакет some):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
-                        const SizedBox(height: 4),
-                        CupertinoButton(
-                          color: const Color(0xFFEFF6FF),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          onPressed: withoutPhoto ? null : () async {
-                            final url = await widget.onUploadPhoto(ImageSource.camera);
-                            setModalState(() => photoAfterUrl = url);
-                          },
-                          child: Text(
-                            photoAfterUrl != null ? 'Фото прикреплено' : 'Сфотографировать узел ПОСЛЕ',
-                            style: const TextStyle(color: Color(0xFF2563EB), fontSize: 13, fontWeight: FontWeight.w600),
-                          ),
+                        const Text('2. Фото ПОСЛЕ ремонта:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CupertinoButton(
+                                color: const Color(0xFFEFF6FF),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                onPressed: withoutPhoto ? null : () async {
+                                  final url = await widget.onUploadPhoto(ImageSource.camera);
+                                  setModalState(() => photoAfterUrl = url);
+                                },
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(CupertinoIcons.camera_fill, size: 15, color: Color(0xFF2563EB)),
+                                    SizedBox(width: 6),
+                                    Text('Камера', style: TextStyle(color: Color(0xFF2563EB), fontSize: 12, fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: CupertinoButton(
+                                color: const Color(0xFFF1F5F9),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                onPressed: withoutPhoto ? null : () async {
+                                  final url = await widget.onUploadPhoto(ImageSource.gallery);
+                                  setModalState(() => photoAfterUrl = url);
+                                },
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(CupertinoIcons.photo_fill, size: 15, color: Color(0xFF475569)),
+                                    SizedBox(width: 6),
+                                    Text('Галерея', style: TextStyle(color: Color(0xFF475569), fontSize: 12, fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
+                        if (photoAfterUrl != null)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 6),
+                            child: Row(
+                              children: [
+                                Icon(CupertinoIcons.check_mark_circled_solid, size: 14, color: Color(0xFF16A34A)),
+                                SizedBox(width: 4),
+                                Text('Фото устранения дефекта прикреплено', style: TextStyle(fontSize: 11, color: Color(0xFF16A34A), fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
                         const SizedBox(height: 14),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,

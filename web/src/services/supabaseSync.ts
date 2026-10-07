@@ -174,7 +174,7 @@ export class SupabaseSyncService {
   }
 
   public subscribeToOrders(onUpdate: (orders: WorkOrder[]) => void): () => void {
-    this.ordersChannel = supabase
+    const ch1 = supabase
       .channel('orders-realtime')
       .on(
         'postgres_changes',
@@ -185,11 +185,23 @@ export class SupabaseSyncService {
       )
       .subscribe();
 
+    const ch2 = supabase
+      .channel('naryad_sync')
+      .on(
+        'broadcast',
+        { event: 'update_order' },
+        () => {
+          this.fetchActiveOrders().then(onUpdate);
+        }
+      )
+      .subscribe();
+
+    this.ordersChannel = ch1;
+
     return () => {
-      if (this.ordersChannel) {
-        supabase.removeChannel(this.ordersChannel);
-        this.ordersChannel = null;
-      }
+      supabase.removeChannel(ch1);
+      supabase.removeChannel(ch2);
+      this.ordersChannel = null;
     };
   }
 
