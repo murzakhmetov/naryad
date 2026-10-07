@@ -674,33 +674,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   }, [employees, teamBrigadeFilter]);
 
   return (
-    <div className={`min-h-screen ${isDark ? 'bg-[#0B0F19] text-slate-100' : 'bg-[#F4F6F9] text-slate-800'} p-3 sm:p-6 lg:p-8 font-sans transition-colors duration-200`}>
+    <div className={`min-h-screen ${isDark ? 'bg-[#0B0F19] text-slate-100' : 'bg-[#F4F6F9] text-slate-800'} p-3 sm:p-5 lg:p-6 font-sans transition-colors duration-200`}>
 
       <div className="max-w-[1520px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
 
-        <div className={`lg:col-span-2 ${isDark ? 'bg-[#131B2E] border-slate-800' : 'bg-white border-slate-100'} rounded-[28px] border p-5 shadow-[0_4px_24px_rgba(0,0,0,0.02)] flex flex-col justify-between min-h-[780px] transition-colors`}>
+        <div className={`lg:col-span-2 ${isDark ? 'bg-[#131B2E] border-slate-800' : 'bg-white border-slate-200/60'} rounded-2xl border p-4 shadow-xs flex flex-col justify-between min-h-[700px] transition-colors`}>
           <div>
 
-            <div className="flex items-center space-x-2.5 px-2 mb-8">
+            <div className="flex items-center space-x-2.5 px-2 mb-6">
               <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm tracking-tighter shadow-xs">
                 N
               </div>
               <div className="flex flex-col">
-                <span className={`font-extrabold text-base tracking-tight ${isDark ? 'text-white' : 'text-slate-900'} leading-tight`}>
+                <span className={`font-bold text-base tracking-tight ${isDark ? 'text-white' : 'text-slate-900'} leading-tight`}>
                   НарядAI
                 </span>
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">
                   АО «Костанайские Минералы»
                 </span>
               </div>
             </div>
 
-            <nav className="space-y-1.5 text-xs font-semibold">
+            <nav className="space-y-1 text-xs font-medium">
               <button
                 onClick={() => setNavTab('home')}
-                className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-2xl transition-all ${
+                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl transition-all ${
                   navTab === 'home'
-                    ? 'bg-blue-600 text-white shadow-xs font-bold'
+                    ? 'bg-blue-600 text-white shadow-xs font-semibold'
                     : isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                 }`}
               >
@@ -710,9 +710,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               <button
                 onClick={() => setNavTab('equipment')}
-                className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl transition-all ${
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all ${
                   navTab === 'equipment'
-                    ? 'bg-blue-600 text-white shadow-xs font-bold'
+                    ? 'bg-blue-600 text-white shadow-xs font-semibold'
                     : isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                 }`}
               >
@@ -731,9 +731,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               <button
                 onClick={() => setNavTab('tasks')}
-                className={`w-full flex items-center justify-between px-3.5 py-3 rounded-2xl transition-all ${
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all ${
                   navTab === 'tasks'
-                    ? 'bg-blue-600 text-white shadow-xs font-bold'
+                    ? 'bg-blue-600 text-white shadow-xs font-semibold'
                     : isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                 }`}
               >
@@ -742,7 +742,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <span>Наряды смены</span>
                 </div>
                 <span
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
                     navTab === 'tasks' ? 'bg-white text-blue-600' : 'text-white bg-blue-600'
                   }`}
                 >
@@ -752,9 +752,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               <button
                 onClick={() => setNavTab('team')}
-                className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-2xl transition-all ${
+                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl transition-all ${
                   navTab === 'team'
-                    ? 'bg-blue-600 text-white shadow-xs font-bold'
+                    ? 'bg-blue-600 text-white shadow-xs font-semibold'
                     : isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                 }`}
               >
@@ -764,9 +764,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               <button
                 onClick={() => setNavTab('settings')}
-                className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-2xl transition-all ${
+                className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl transition-all ${
                   navTab === 'settings'
-                    ? 'bg-blue-600 text-white shadow-xs font-bold'
+                    ? 'bg-blue-600 text-white shadow-xs font-semibold'
                     : isDark ? 'text-slate-400 hover:text-white hover:bg-slate-800/60' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                 }`}
               >
@@ -776,18 +776,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </nav>
           </div>
 
-          <div className={`space-y-4 pt-4 border-t ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
-            <div className={`p-4 rounded-2xl ${isDark ? 'bg-[#0E1526] border-slate-800' : 'bg-[#F8FAFC] border-slate-200/60'} border text-center space-y-2`}>
-              <div className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Выдать наряд (&lt;1 мин)</div>
-              <p className="text-[11px] text-slate-500 leading-tight">
-                До 6 нажатий по регламенту с ИИ-подбором исполнителя
-              </p>
+          <div className={`space-y-3 pt-3 border-t ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
+            <div className={`p-3 rounded-xl ${isDark ? 'bg-[#0E1526] border-slate-800' : 'bg-[#F8FAFC] border-slate-200/50'} border text-center space-y-2`}>
               <button
                 onClick={() => {
                   setShowCreateModal(true);
                   handleTriggerAiRecommendation();
                 }}
-                className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-transform active:scale-95 flex items-center justify-center space-x-1.5"
+                className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs transition-transform active:scale-95 flex items-center justify-center space-x-1.5"
               >
                 <Plus className="w-4 h-4" />
                 <span>Создать наряд</span>
@@ -797,12 +793,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="space-y-1 text-xs text-slate-500 font-medium px-2">
               <div
                 onClick={() => setNavTab('settings')}
-                className={`flex items-center space-x-2.5 py-1.5 ${isDark ? 'hover:text-white' : 'hover:text-slate-900'} cursor-pointer`}
+                className={`flex items-center space-x-2.5 py-1 ${isDark ? 'hover:text-white' : 'hover:text-slate-900'} cursor-pointer`}
               >
                 <HelpCircle className="w-4 h-4" />
                 <span>Регламент и SLA</span>
               </div>
-              <div className="flex items-center space-x-2.5 py-1.5 text-emerald-600 font-semibold">
+              <div className="flex items-center space-x-2.5 py-1 text-emerald-600 font-semibold">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span>Смена {settingsShift} (08:00 - 20:00)</span>
               </div>
@@ -810,7 +806,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        <div className={`lg:col-span-7 ${isDark ? 'bg-[#131B2E] border-slate-800' : 'bg-white border-slate-100'} rounded-[28px] border p-6 sm:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.02)] space-y-7 min-h-[780px] transition-colors`}>
+        <div className={`lg:col-span-7 ${isDark ? 'bg-[#131B2E] border-slate-800' : 'bg-white border-slate-200/60'} rounded-2xl border p-5 sm:p-6 shadow-xs space-y-5 min-h-[700px] transition-colors`}>
 
           {navTab === 'home' && (
             <>
@@ -929,22 +925,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                   <div
                     onClick={() => setExpandedKpi(expandedKpi === 'completed' ? null : 'completed')}
-                    className={`p-4 rounded-2xl ${
+                    className={`p-3.5 sm:p-4 rounded-xl ${
                       isDark
                         ? 'bg-[#0E1526] border-slate-800 hover:border-blue-500/50'
-                        : 'bg-white border-slate-150/80 hover:border-blue-400'
+                        : 'bg-white border-slate-200/60 hover:border-blue-400'
                     } border shadow-xs flex items-center justify-between transition-all cursor-pointer group`}
                     title="Нажмите, чтобы раскрыть/скрыть подробности по нарядам"
                   >
                     <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 rounded-full ${isDark ? 'bg-slate-800 text-blue-400' : 'bg-slate-100 text-slate-700'} flex items-center justify-center`}>
+                      <div className={`w-9 h-9 rounded-full ${isDark ? 'bg-slate-800 text-blue-400' : 'bg-slate-100 text-slate-700'} flex items-center justify-center`}>
                         <ThumbsUp className="w-4 h-4" />
                       </div>
                       <div>
                         <div className="text-[11px] font-medium text-slate-400">Выполнено</div>
-                        <div className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-slate-900'} leading-none mt-0.5`}>
+                        <div className={`text-base sm:text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'} leading-none mt-0.5`}>
                           {completedOrders.length > 0 ? completedOrders.length + 14 : 18}
-                          <span className={`text-[11px] font-bold text-emerald-600 ${isDark ? 'bg-emerald-950/40' : 'bg-emerald-50'} px-1.5 py-0.5 rounded-md ml-1`}>
+                          <span className={`text-[11px] font-semibold text-emerald-600 ${isDark ? 'bg-emerald-950/40' : 'bg-emerald-50'} px-1.5 py-0.5 rounded-md ml-1`}>
                             +8 нарядов
                           </span>
                         </div>
@@ -957,22 +953,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                   <div
                     onClick={() => setExpandedKpi(expandedKpi === 'hours' ? null : 'hours')}
-                    className={`p-4 rounded-2xl ${
+                    className={`p-3.5 sm:p-4 rounded-xl ${
                       isDark
                         ? 'bg-[#0E1526] border-slate-800 hover:border-blue-500/50'
-                        : 'bg-white border-slate-150/80 hover:border-blue-400'
+                        : 'bg-white border-slate-200/60 hover:border-blue-400'
                     } border shadow-xs flex items-center justify-between transition-all cursor-pointer group`}
                     title="Нажмите, чтобы раскрыть/скрыть подробности по отработанным часам"
                   >
                     <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 rounded-full ${isDark ? 'bg-slate-800 text-orange-400' : 'bg-slate-100 text-slate-700'} flex items-center justify-center`}>
+                      <div className={`w-9 h-9 rounded-full ${isDark ? 'bg-slate-800 text-orange-400' : 'bg-slate-100 text-slate-700'} flex items-center justify-center`}>
                         <Clock className="w-4 h-4" />
                       </div>
                       <div>
                         <div className="text-[11px] font-medium text-slate-400">Отработано</div>
-                        <div className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-slate-900'} leading-none mt-0.5`}>
+                        <div className={`text-base sm:text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'} leading-none mt-0.5`}>
                           31ч
-                          <span className={`text-[11px] font-bold text-orange-600 ${isDark ? 'bg-orange-950/40' : 'bg-orange-50'} px-1.5 py-0.5 rounded-md ml-1`}>
+                          <span className={`text-[11px] font-semibold text-orange-600 ${isDark ? 'bg-orange-950/40' : 'bg-orange-50'} px-1.5 py-0.5 rounded-md ml-1`}>
                             -6ч простоев
                           </span>
                         </div>
@@ -985,22 +981,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                   <div
                     onClick={() => setExpandedKpi(expandedKpi === 'eff' ? null : 'eff')}
-                    className={`p-4 rounded-2xl ${
+                    className={`p-3.5 sm:p-4 rounded-xl ${
                       isDark
                         ? 'bg-[#0E1526] border-slate-800 hover:border-blue-500/50'
-                        : 'bg-white border-slate-150/80 hover:border-blue-400'
+                        : 'bg-white border-slate-200/60 hover:border-blue-400'
                     } border shadow-xs flex items-center justify-between transition-all cursor-pointer group`}
                     title="Нажмите, чтобы раскрыть/скрыть подробности по эффективности"
                   >
                     <div className="flex items-center space-x-3">
-                      <div className={`w-10 h-10 rounded-full ${isDark ? 'bg-slate-800 text-emerald-400' : 'bg-slate-100 text-slate-700'} flex items-center justify-center`}>
+                      <div className={`w-9 h-9 rounded-full ${isDark ? 'bg-slate-800 text-emerald-400' : 'bg-slate-100 text-slate-700'} flex items-center justify-center`}>
                         <Gauge className="w-4 h-4" />
                       </div>
                       <div>
                         <div className="text-[11px] font-medium text-slate-400">Эффективность</div>
-                        <div className={`text-lg font-extrabold ${isDark ? 'text-white' : 'text-slate-900'} leading-none mt-0.5`}>
+                        <div className={`text-base sm:text-lg font-bold ${isDark ? 'text-white' : 'text-slate-900'} leading-none mt-0.5`}>
                           93%
-                          <span className={`text-[11px] font-bold text-emerald-600 ${isDark ? 'bg-emerald-950/40' : 'bg-emerald-50'} px-1.5 py-0.5 rounded-md ml-1`}>
+                          <span className={`text-[11px] font-semibold text-emerald-600 ${isDark ? 'bg-emerald-950/40' : 'bg-emerald-50'} px-1.5 py-0.5 rounded-md ml-1`}>
                             +12%
                           </span>
                         </div>
@@ -1093,14 +1089,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </div>
                       <div className={`p-2.5 rounded-xl ${isDark ? 'bg-slate-800/60' : 'bg-white'} border border-slate-200/40`}>
                         <span className="text-[10px] text-slate-400 block">Точность ИИ</span>
-                        <span className="font-bold text-indigo-500">98.2% Gemini 3.1</span>
+                        <span className="font-bold text-indigo-500">98.2%</span>
                       </div>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className={`p-5 rounded-2xl ${isDark ? 'bg-[#0E1526] border-slate-800' : 'bg-white border-slate-150/80'} border shadow-xs space-y-4`}>
+              <div className={`p-4 sm:p-5 rounded-xl ${isDark ? 'bg-[#0E1526] border-slate-800' : 'bg-white border-slate-200/60'} border shadow-xs space-y-3`}>
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className={`font-bold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>Динамика смены (Performance)</h3>
@@ -1348,7 +1344,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                                   : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
                               } space-y-1`}>
                                 <div className="flex items-center justify-between font-bold text-xs">
-                                  <span>Оценка ИИ Gemini: {ord.aiEvaluation.score}/100 ({ord.aiEvaluation.verdict === 'approved' ? 'Принято' : 'Требует доработки'})</span>
+                                  <span>Оценка ИИ: {ord.aiEvaluation.score}/100 ({ord.aiEvaluation.verdict === 'approved' ? 'Принято' : 'Требует доработки'})</span>
                                   <span className="text-[10px] opacity-80">96% совпадение</span>
                                 </div>
                                 <p className="text-[11px] leading-relaxed opacity-90">{ord.aiEvaluation.explanation}</p>
@@ -2180,48 +2176,48 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           )}
         </div>
 
-        <div className={`lg:col-span-3 ${isDark ? 'bg-[#131B2E] border-slate-800' : 'bg-white border-slate-100'} rounded-[28px] border p-6 shadow-[0_4px_24px_rgba(0,0,0,0.02)] space-y-6 transition-colors`}>
+        <div className={`lg:col-span-3 ${isDark ? 'bg-[#131B2E] border-slate-800' : 'bg-white border-slate-200/60'} rounded-2xl border p-4 sm:p-5 shadow-xs space-y-4 transition-colors`}>
 
-          <div className={`text-center pb-5 border-b ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
-            <div className="relative inline-block mb-3">
-              <div className="w-18 h-18 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 text-white font-extrabold text-xl flex items-center justify-center shadow-md mx-auto">
+          <div className={`text-center pb-4 border-b ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
+            <div className="relative inline-block mb-2">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 text-white font-bold text-base flex items-center justify-center shadow-xs mx-auto">
                 ЕА
               </div>
-              <span className={`absolute bottom-0 right-1 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 ${isDark ? 'border-[#131B2E]' : 'border-white'}`} />
+              <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 ${isDark ? 'border-[#131B2E]' : 'border-white'}`} />
             </div>
 
             <h3 className={`font-bold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>Ербол Ахметов</h3>
             <p className="text-xs text-slate-400">@akhmetov_e • Слесарь 5р (Бригада 1)</p>
 
-            <div className="flex items-center justify-center space-x-3 mt-4">
+            <div className="flex items-center justify-center space-x-2.5 mt-3">
               <button
                 onClick={() => setShowRadioCallModal(true)}
-                className={`w-10 h-10 rounded-full ${
+                className={`w-9 h-9 rounded-full ${
                   isDark ? 'bg-slate-800 hover:bg-blue-600/20 hover:text-blue-400 text-slate-300' : 'bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-700'
                 } flex items-center justify-center transition-colors`}
                 title="Связаться по рации с Ерболом Ахметовым"
               >
-                <Phone className="w-4 h-4" />
+                <Phone className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => setShowVideoModal(true)}
-                className={`w-10 h-10 rounded-full ${
+                className={`w-9 h-9 rounded-full ${
                   isDark ? 'bg-slate-800 hover:bg-indigo-600/20 hover:text-indigo-400 text-slate-300' : 'bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700'
                 } flex items-center justify-center transition-colors`}
                 title="Запустить видеоинспекцию узла"
               >
-                <Video className="w-4 h-4" />
+                <Video className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => {
                   workOrderStore.playAudioAlert('info');
                 }}
-                className={`w-10 h-10 rounded-full ${
+                className={`w-9 h-9 rounded-full ${
                   isDark ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                 } flex items-center justify-center transition-colors`}
                 title="Отправить звуковой сигнал на пейджер"
               >
-                <Volume2 className="w-4 h-4" />
+                <Volume2 className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
@@ -2476,7 +2472,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow-md transition-all active:scale-95"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>{closingAiEvaluating ? 'ИИ оценивает наряд (gemini-3.1-flash-lite)...' : 'Завершить и сдать на ИИ-контроль'}</span>
+                    <span>{closingAiEvaluating ? 'ИИ выполняет проверку наряда...' : 'Завершить и сдать на ИИ-контроль'}</span>
                   </button>
                 </div>
               )}

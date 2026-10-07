@@ -361,22 +361,6 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
               </button>
             </div>
           )}
-
-          <div className="pt-2 flex items-center justify-between text-xs text-slate-400 border-t border-white/[0.06]">
-            <div className="flex items-center space-x-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span>ИИ: {getGeminiModel()}</span>
-            </div>
-            <button
-              onClick={() => {
-                setShowKeyModal(true);
-                setMobileMenuOpen(false);
-              }}
-              className="text-blue-400 hover:underline text-[11px]"
-            >
-              Настроить ключ API
-            </button>
-          </div>
         </div>
       )}
 
