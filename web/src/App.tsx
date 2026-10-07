@@ -60,6 +60,18 @@ export function App() {
     return () => unsubscribe();
   }, []);
 
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    return (localStorage.getItem('naryad_theme') as 'light' | 'dark') || 'light';
+  });
+
+  const handleToggleTheme = () => {
+    setTheme((prev) => {
+      const next = prev === 'light' ? 'dark' : 'light';
+      localStorage.setItem('naryad_theme', next);
+      return next;
+    });
+  };
+
   const handleToggleLang = () => {
     setLang((prev) => (prev === 'ru' ? 'kz' : 'ru'));
   };
@@ -83,7 +95,9 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+    <div className={`min-h-screen flex flex-col font-sans selection:bg-blue-600 selection:text-white transition-colors duration-200 ${
+      theme === 'dark' ? 'bg-[#090D16] text-white' : 'bg-[#F8FAFC] text-slate-900'
+    }`}>
 
       <HeaderNav
         currentView={currentView}
@@ -94,6 +108,8 @@ export function App() {
         userRole={userRole}
         userEmail={userEmail}
         onLogout={handleLogout}
+        theme={theme}
+        onToggleTheme={handleToggleTheme}
       />
 
       <main className="flex-1">
@@ -111,6 +127,7 @@ export function App() {
             employees={employees}
             lang={lang}
             userRole={userRole}
+            theme={theme}
           />
         )}
 
@@ -125,9 +142,9 @@ export function App() {
 
       <footer
         className={`py-6 text-center text-xs transition-colors ${
-          currentView === 'dashboard'
-            ? 'bg-[#F4F6F9] text-slate-500 border-t border-slate-200'
-            : 'bg-[#08090B] text-[#62666D] border-t border-white/[0.08]'
+          theme === 'dark'
+            ? 'bg-[#060910] text-[#62666D] border-t border-white/[0.08]'
+            : 'bg-white text-slate-500 border-t border-slate-200'
         }`}
       >
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">

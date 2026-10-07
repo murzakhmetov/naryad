@@ -13,6 +13,8 @@ import {
   Radio,
   LogOut,
   User,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import type { Language } from '../utils/i18n';
 import { I18N } from '../utils/i18n';
@@ -29,6 +31,8 @@ interface HeaderNavProps {
   userRole?: 'master' | 'worker';
   userEmail?: string;
   onLogout?: () => void;
+  theme?: 'light' | 'dark';
+  onToggleTheme?: () => void;
 }
 
 export const HeaderNav: React.FC<HeaderNavProps> = ({
@@ -40,6 +44,8 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   userRole,
   userEmail,
   onLogout,
+  theme = 'light',
+  onToggleTheme,
 }) => {
   const [showNotifs, setShowNotifs] = useState(false);
   const [showKeyModal, setShowKeyModal] = useState(false);
@@ -194,6 +200,26 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             <span>{lang.toUpperCase()}</span>
           </button>
 
+          {onToggleTheme && (
+            <button
+              onClick={onToggleTheme}
+              className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 transition-colors"
+              title={theme === 'dark' ? 'Включить светлую тему' : 'Включить темную тему'}
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="hidden xl:inline text-[11px]">Светлая</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-3.5 h-3.5 text-indigo-400" />
+                  <span className="hidden xl:inline text-[11px]">Темная</span>
+                </>
+              )}
+            </button>
+          )}
+
           <div className="relative">
             <button
               onClick={() => setShowNotifs(!showNotifs)}
@@ -320,6 +346,19 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
                   Выйти
                 </button>
               )}
+            </div>
+          )}
+
+          {onToggleTheme && (
+            <div className="pt-2 flex items-center justify-between text-xs text-slate-400 border-t border-white/[0.06]">
+              <span>Тема оформления:</span>
+              <button
+                onClick={onToggleTheme}
+                className="flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-white/[0.05] border border-white/10 text-white font-medium text-xs"
+              >
+                {theme === 'dark' ? <Sun className="w-3.5 h-3.5 text-amber-400" /> : <Moon className="w-3.5 h-3.5 text-indigo-400" />}
+                <span>{theme === 'dark' ? 'Светлая тема' : 'Темная тема'}</span>
+              </button>
             </div>
           )}
 
