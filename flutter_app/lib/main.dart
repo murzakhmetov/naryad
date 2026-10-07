@@ -53,6 +53,10 @@ class WorkOrderModel {
   int aiScore;
   String? aiVerdict;
   String? aiNotes;
+  String? aiGood;
+  String? aiImprove;
+  int? actualMinutes;
+  int? plannedMinutes;
   bool isOverdue;
   String assignedWorkerId;
   String assignedWorkerName;
@@ -79,6 +83,10 @@ class WorkOrderModel {
     this.aiScore = 0,
     this.aiVerdict,
     this.aiNotes,
+    this.aiGood,
+    this.aiImprove,
+    this.actualMinutes,
+    this.plannedMinutes,
     this.isOverdue = false,
   });
 
@@ -104,6 +112,10 @@ class WorkOrderModel {
     'aiScore': aiScore,
     'aiVerdict': aiVerdict,
     'aiNotes': aiNotes,
+    'aiGood': aiGood,
+    'aiImprove': aiImprove,
+    'actualMinutes': actualMinutes,
+    'plannedMinutes': plannedMinutes,
     'isOverdue': isOverdue,
   };
 
@@ -134,14 +146,18 @@ class WorkOrderModel {
     'materials_spent': [],
     'status_history': [],
     'ai_evaluation': aiVerdict != null ? {
-      'verdict': aiVerdict == 'Принято' ? 'approved' : 'rework_needed',
+      'verdict': aiVerdict == 'Принято' || aiVerdict == 'approved' ? 'approved' : 'rework_needed',
       'score': aiScore,
       'explanation': aiNotes ?? '',
       'workDescriptionMatch': true,
-      'materialLogicCheck': aiVerdict == 'Принято',
+      'materialLogicCheck': aiVerdict == 'approved' || aiVerdict == 'Принято',
       'timeNormMatch': true,
       'workerFeedback': aiNotes ?? '',
       'masterNotes': aiNotes ?? '',
+      'goodPoints': aiGood ?? '',
+      'improvePoints': aiImprove ?? '',
+      'actualMinutes': actualMinutes ?? 42,
+      'plannedMinutes': plannedMinutes ?? 60,
     } : null,
   };
 
@@ -164,9 +180,13 @@ class WorkOrderModel {
     materialsSpent: json['materialsSpent'] is String ? json['materialsSpent'] : jsonEncode(json['materialsSpent'] ?? []),
     performedWork: json['performedWork'] ?? json['performed_work_description'],
     workerComment: json['workerComment'] ?? json['worker_comment'],
-    aiScore: json['aiScore'] ?? 0,
-    aiVerdict: json['aiVerdict'],
-    aiNotes: json['aiNotes'],
+    aiScore: json['aiScore'] ?? (json['ai_evaluation'] is Map ? json['ai_evaluation']['score'] ?? 0 : 0),
+    aiVerdict: json['aiVerdict'] ?? (json['ai_evaluation'] is Map ? json['ai_evaluation']['verdict'] : null),
+    aiNotes: json['aiNotes'] ?? (json['ai_evaluation'] is Map ? json['ai_evaluation']['explanation'] ?? json['ai_evaluation']['workerFeedback'] : null),
+    aiGood: json['aiGood'] ?? (json['ai_evaluation'] is Map ? json['ai_evaluation']['goodPoints'] : null),
+    aiImprove: json['aiImprove'] ?? (json['ai_evaluation'] is Map ? json['ai_evaluation']['improvePoints'] : null),
+    actualMinutes: json['actualMinutes'] ?? (json['ai_evaluation'] is Map ? json['ai_evaluation']['actualMinutes'] : null),
+    plannedMinutes: json['plannedMinutes'] ?? (json['ai_evaluation'] is Map ? json['ai_evaluation']['plannedMinutes'] : 60),
     isOverdue: json['isOverdue'] ?? json['is_overdue'] ?? false,
   );
 }
@@ -1189,29 +1209,183 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
           const SizedBox(height: 8),
           Row(
             children: [
+              const Icon(CupertinoIcons.wrench_fill, size: 12, color: Color(0xFF64748B)),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text('${o.equipmentName} (${o.workshopName})', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155)), overflow: TextOverflow.ellipsis),
+              ),
+              if (o.faultCode != null) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F2FE),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    'Шифр: ${o.faultCode}',
+                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF0369A1)),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
               const Icon(CupertinoIcons.person_fill, size: 12, color: Color(0xFF64748B)),
               const SizedBox(width: 4),
               Text(o.assignedWorkerName, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
             ],
           ),
+          if (o.photoBeforeUrl != null || o.photoAfterUrl != null) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                if (o.photoBeforeUrl != null)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Фото ДО ремонта:', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF64748B))),
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            o.photoBeforeUrl!,
+                            height: 70,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(height: 70, color: const Color(0xFFF1F5F9), child: const Center(child: Icon(CupertinoIcons.photo, size: 20, color: Color(0xFF94A3B8)))),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (o.photoBeforeUrl != null && o.photoAfterUrl != null)
+                  const SizedBox(width: 8),
+                if (o.photoAfterUrl != null)
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Фото ПОСЛЕ ремонта:', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            o.photoAfterUrl!,
+                            height: 70,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(height: 70, color: const Color(0xFFF1F5F9), child: const Center(child: Icon(CupertinoIcons.photo, size: 20, color: Color(0xFF94A3B8)))),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
           if (o.aiVerdict != null) ...[
             const SizedBox(height: 10),
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: o.aiVerdict == 'approved' ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: o.aiVerdict == 'approved' ? const Color(0xFFBBF7D0) : const Color(0xFFFDE68A)),
               ),
-              child: Row(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(CupertinoIcons.sparkles, size: 14, color: o.aiVerdict == 'approved' ? const Color(0xFF16A34A) : const Color(0xFFD97706)),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'ИИ (${o.aiScore}/100): ${o.aiNotes ?? ""}',
-                      style: TextStyle(fontSize: 11, color: o.aiVerdict == 'approved' ? const Color(0xFF14532D) : const Color(0xFF78350F), fontWeight: FontWeight.w500),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(CupertinoIcons.sparkles, size: 15, color: o.aiVerdict == 'approved' ? const Color(0xFF16A34A) : const Color(0xFFD97706)),
+                          const SizedBox(width: 6),
+                          Text(
+                            o.aiVerdict == 'approved' ? 'ВЕРИФИКАЦИЯ ИИ: ПРИНЯТО' : 'ВЕРИФИКАЦИЯ ИИ: ДОРАБОТКА',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: o.aiVerdict == 'approved' ? const Color(0xFF14532D) : const Color(0xFF78350F),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: o.aiVerdict == 'approved' ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          '${o.aiScore}/100 (${o.aiScore >= 90 ? "5/5" : "3.5/5"})',
+                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: CupertinoColors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    o.aiNotes ?? '',
+                    style: TextStyle(fontSize: 11, color: o.aiVerdict == 'approved' ? const Color(0xFF166534) : const Color(0xFF92400E), fontWeight: FontWeight.w500),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: CupertinoColors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(CupertinoIcons.check_mark_circled_solid, size: 13, color: Color(0xFF16A34A)),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                'Что сделано хорошо: ${o.aiGood ?? "Течь масла устранена на 100%, регламент LOTO и ношение СИЗ соблюдены, соосность в норме."}',
+                                style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B), fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(CupertinoIcons.exclamationmark_triangle_fill, size: 13, color: Color(0xFFD97706)),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                'Что улучшить: ${o.aiImprove ?? (o.aiVerdict == "approved" ? "В следующий раз крепить фото под прямым углом и сдавать остатки метизов на склад." : "Приложить четкое фото после ремонта и сдать излишки масла на склад.")}',
+                                style: const TextStyle(fontSize: 10, color: Color(0xFF1E293B), fontWeight: FontWeight.w500),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
+                            const Icon(CupertinoIcons.time_solid, size: 13, color: Color(0xFF2563EB)),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                'Время: Факт ${o.actualMinutes ?? 42} мин против норматива ${o.plannedMinutes ?? 60} мин ${(o.actualMinutes ?? 42) <= (o.plannedMinutes ?? 60) ? "(на ${(o.plannedMinutes ?? 60) - (o.actualMinutes ?? 42)} мин быстрее нормы)" : "(превышение на ${(o.actualMinutes ?? 42) - (o.plannedMinutes ?? 60)} мин)"}',
+                                style: const TextStyle(fontSize: 10, color: Color(0xFF2563EB), fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -1319,15 +1493,26 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
   void _showCompleteDialog(BuildContext context) {
     final o = widget.order;
     String? photoAfterUrl;
-    final workCtrl = TextEditingController(text: 'Замена уплотнения сальника, протяжка болтовых соединений, проверка герметичности.');
+    final workCtrl = TextEditingController(text: o.performedWork ?? 'Замена уплотнения сальника, протяжка болтовых соединений, проверка герметичности.');
+    final matCtrl = TextEditingController(text: o.materialsSpent != null && o.materialsSpent!.isNotEmpty ? o.materialsSpent! : 'Сальник 45х65 - 1 шт, Масло И-40 - 2 л, Болты М16х45 - 4 шт');
+    final commentCtrl = TextEditingController(text: o.workerComment != null && o.workerComment!.isNotEmpty ? o.workerComment! : 'Замена уплотнения выполнена в штатном режиме, узел отмыт от потеков, пробный пуск без вибраций.');
+    String selectedFault = o.faultCode ?? 'М-02';
     bool isExcessMaterials = false;
     bool withoutPhoto = false;
+
+    final faultList = [
+      {'code': 'М-02', 'label': 'М-02 (Сальник)'},
+      {'code': 'М-01', 'label': 'М-01 (Подшипник)'},
+      {'code': 'М-05', 'label': 'М-05 (Несоосность)'},
+      {'code': 'Э-01', 'label': 'Э-01 (Изоляция)'},
+      {'code': 'Г-03', 'label': 'Г-03 (Гидравлика)'},
+    ];
 
     showCupertinoModalPopup(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setModalState) => Container(
-          height: MediaQuery.of(context).size.height * 0.85,
+          height: MediaQuery.of(context).size.height * 0.9,
           color: CupertinoColors.white,
           child: SafeArea(
             child: Padding(
@@ -1359,7 +1544,58 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
                           decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFCBD5E1))),
                         ),
                         const SizedBox(height: 14),
-                        const Text('2. Фото ПОСЛЕ ремонта:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                        const Text('2. Шифр неисправности (классификатор):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                        const SizedBox(height: 6),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: faultList.map((f) {
+                              final isSelected = selectedFault == f['code'];
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: GestureDetector(
+                                  onTap: () => setModalState(() => selectedFault = f['code']!),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFF1F5F9),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFCBD5E1)),
+                                    ),
+                                    child: Text(
+                                      f['label']!,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: isSelected ? CupertinoColors.white : const Color(0xFF334155),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text('3. Использованные материалы и ТМЦ:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                        const SizedBox(height: 4),
+                        CupertinoTextField(
+                          controller: matCtrl,
+                          maxLines: 2,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFCBD5E1))),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text('4. Комментарий исполнителя:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                        const SizedBox(height: 4),
+                        CupertinoTextField(
+                          controller: commentCtrl,
+                          maxLines: 2,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFCBD5E1))),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text('5. Фото ПОСЛЕ ремонта:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
                         const SizedBox(height: 6),
                         Row(
                           children: [
@@ -1451,13 +1687,24 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
                           o.aiVerdict = 'rework_needed';
                           o.aiScore = 68;
                           o.aiNotes = 'Требует доработки: отсутствует контрольное фото ПОСЛЕ и списание масла превысило норму в 2.4 раза.';
+                          o.aiGood = 'Работы по механической сборке и протяжке болтов зафиксированы в описании.';
+                          o.aiImprove = 'Приложить четкое фото после устранения дефекта; вернуть неизрасходованный объем масла на склад комбината.';
+                          o.actualMinutes = 75;
+                          o.plannedMinutes = 60;
                         } else {
                           o.status = 'completed';
                           o.aiVerdict = 'approved';
                           o.aiScore = 96;
                           o.aiNotes = 'Работы приняты: фото подтвердило отсутствие течи, СИЗ надеты, списание ТМЦ обосновано.';
+                          o.aiGood = 'Течь масла устранена на 100%. Узел очищен, соосность в норме. Регламент LOTO и ношение СИЗ соблюдены.';
+                          o.aiImprove = 'В следующий раз указывать величину проверочного зазора щупом в комментарии.';
+                          o.actualMinutes = 42;
+                          o.plannedMinutes = 60;
                           o.photoAfterUrl = photoAfterUrl ?? 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80';
                         }
+                        o.faultCode = selectedFault;
+                        o.materialsSpent = matCtrl.text;
+                        o.workerComment = commentCtrl.text;
                         o.performedWork = workCtrl.text;
                         setState(() => _isEvaluating = false);
                         widget.onUpdate(o);

@@ -10,7 +10,7 @@ export function AuthScreen({ onAuth }: AuthScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState<'master' | 'worker'>('worker');
+  const [role, setRole] = useState<'master' | 'head' | 'admin'>('master');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -125,31 +125,43 @@ export function AuthScreen({ onAuth }: AuthScreenProps) {
 
             {!isLogin && (
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1.5">Роль в системе</label>
-                <div className="grid grid-cols-2 gap-3">
+                <label className="block text-xs font-medium text-slate-300 mb-1.5">Роль в веб-панели</label>
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
-                    className={`p-3 rounded-lg border text-left transition-all ${
+                    className={`p-2.5 rounded-lg border text-left transition-all ${
                       role === 'master'
                         ? 'border-blue-500 bg-blue-500/10 text-white'
                         : 'border-white/10 bg-white/5 text-slate-400 hover:border-white/20'
                     }`}
                     onClick={() => setRole('master')}
                   >
-                    <div className="text-sm font-medium">Мастер</div>
-                    <div className="text-xs mt-0.5 opacity-70">Выдача и контроль нарядов</div>
+                    <div className="text-xs font-bold">Мастер смены</div>
+                    <div className="text-[10px] mt-0.5 opacity-70">Выдача нарядов</div>
                   </button>
                   <button
                     type="button"
-                    className={`p-3 rounded-lg border text-left transition-all ${
-                      role === 'worker'
+                    className={`p-2.5 rounded-lg border text-left transition-all ${
+                      role === 'head'
+                        ? 'border-indigo-500 bg-indigo-500/10 text-white'
+                        : 'border-white/10 bg-white/5 text-slate-400 hover:border-white/20'
+                    }`}
+                    onClick={() => setRole('head')}
+                  >
+                    <div className="text-xs font-bold">Руководитель</div>
+                    <div className="text-[10px] mt-0.5 opacity-70">Аналитика и простои</div>
+                  </button>
+                  <button
+                    type="button"
+                    className={`p-2.5 rounded-lg border text-left transition-all ${
+                      role === 'admin'
                         ? 'border-cyan-500 bg-cyan-500/10 text-white'
                         : 'border-white/10 bg-white/5 text-slate-400 hover:border-white/20'
                     }`}
-                    onClick={() => setRole('worker')}
+                    onClick={() => setRole('admin')}
                   >
-                    <div className="text-sm font-medium">Исполнитель</div>
-                    <div className="text-xs mt-0.5 opacity-70">Выполнение ремонтных работ</div>
+                    <div className="text-xs font-bold">Администратор</div>
+                    <div className="text-[10px] mt-0.5 opacity-70">Справочники</div>
                   </button>
                 </div>
               </div>

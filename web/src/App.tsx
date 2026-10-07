@@ -3,6 +3,7 @@ import { HeaderNav } from './components/HeaderNav';
 import { LandingView } from './components/LandingView';
 import { DashboardView } from './components/DashboardView';
 import { AnalyticsView } from './components/AnalyticsView';
+import { AdminView } from './components/AdminView';
 import { AuthScreen } from './components/AuthScreen';
 import type { PushNotification } from './store/workOrderStore';
 import { workOrderStore } from './store/workOrderStore';
@@ -11,10 +12,10 @@ import type { Language } from './utils/i18n';
 import { supabase } from './services/supabaseClient';
 
 export function App() {
-  const [currentView, setCurrentView] = useState<'landing' | 'dashboard' | 'analytics'>('landing');
+  const [currentView, setCurrentView] = useState<'landing' | 'dashboard' | 'analytics' | 'admin'>('landing');
   const [lang, setLang] = useState<Language>('ru');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [userRole, setUserRole] = useState<'master' | 'worker'>('worker');
+  const [userRole, setUserRole] = useState<'master' | 'head' | 'admin'>('master');
   const [userEmail, setUserEmail] = useState('');
 
   const [orders, setOrders] = useState<WorkOrder[]>(workOrderStore.getActiveOrders());
@@ -29,7 +30,7 @@ export function App() {
       if (session) {
         setUserEmail(session.user.email || '');
         const role = session.user.user_metadata?.role;
-        setUserRole(role === 'master' ? 'master' : 'worker');
+        setUserRole(role === 'admin' ? 'admin' : role === 'head' ? 'head' : 'master');
       }
     });
 
@@ -38,7 +39,7 @@ export function App() {
       if (session) {
         setUserEmail(session.user.email || '');
         const role = session.user.user_metadata?.role;
-        setUserRole(role === 'master' ? 'master' : 'worker');
+        setUserRole(role === 'admin' ? 'admin' : role === 'head' ? 'head' : 'master');
       }
     });
 
@@ -106,6 +107,7 @@ export function App() {
         onToggleLang={handleToggleLang}
         notifications={notifications}
         userRole={userRole}
+        onSelectRole={(role) => setUserRole(role)}
         userEmail={userEmail}
         onLogout={handleLogout}
         theme={theme}
@@ -136,6 +138,12 @@ export function App() {
             orders={workOrderStore.getAllOrders()}
             employees={employees}
             lang={lang}
+          />
+        )}
+
+        {currentView === 'admin' && (
+          <AdminView
+            theme={theme}
           />
         )}
       </main>

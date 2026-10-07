@@ -28,7 +28,7 @@ import { detectHistoricalAnomalies } from '../services/aiService';
 import type { Language } from '../utils/i18n';
 import { I18N } from '../utils/i18n';
 import { workOrderStore } from '../store/workOrderStore';
-import jsPDF from 'jspdf';
+import { printAnalyticsPdf } from '../utils/pdfHelper';
 import * as XLSX from 'xlsx';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
@@ -232,28 +232,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   };
 
   const handleExportPDF = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text('АО «Костанайские Минералы» - Система «НарядAI»', 14, 20);
-    doc.setFontSize(11);
-    doc.text('Сводный отчет по ремонтам, простоям и ИИ-аналитике за 3 месяца', 14, 28);
-    doc.text(`Всего обработано нарядов: ${orders.length}`, 14, 36);
-
-    doc.setFontSize(12);
-    doc.text('Обнаруженные ИИ-аномалии оборудования:', 14, 48);
-
-    let y = 56;
-    anomalies.forEach((a, idx) => {
-      doc.setFontSize(10);
-      doc.text(`${idx + 1}. ${a.title} (${a.equipment})`, 14, y);
-      y += 6;
-      doc.setFontSize(8);
-      const splitText = doc.splitTextToSize(a.detectedPattern, 180);
-      doc.text(splitText, 18, y);
-      y += splitText.length * 5 + 4;
-    });
-
-    doc.save('NaryadAI_Analitika_Kostanai.pdf');
+    printAnalyticsPdf(orders.length, anomalies);
   };
 
   return (

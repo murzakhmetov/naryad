@@ -54,7 +54,7 @@ import {
   Eye,
   ChevronUp,
 } from 'lucide-react';
-import jsPDF from 'jspdf';
+import { printWorkOrderPdf, printVibroReportPdf } from '../utils/pdfHelper';
 import * as XLSX from 'xlsx';
 import type { WorkOrder, Employee, OrderStatus } from '../data/mockData';
 import { WORKSHOPS, EQUIPMENT_LIST, FAULT_CODES, MATERIALS_CATALOG } from '../data/mockData';
@@ -78,7 +78,7 @@ interface DashboardViewProps {
   orders: WorkOrder[];
   employees: Employee[];
   lang: Language;
-  userRole?: 'master' | 'worker';
+  userRole?: 'master' | 'head' | 'admin';
   theme?: 'light' | 'dark';
 }
 
@@ -560,70 +560,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   const handleDownloadVibroPdf = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text('АО «КОСТАНАЙСКИЕ МИНЕРАЛЫ»', 20, 20);
-    doc.setFontSize(12);
-    doc.text('ПРОТОКОЛ ВИБРОДИАГНОСТИКИ И ТЕХОСМОТРА', 20, 30);
-    doc.setFontSize(10);
-    doc.text(`Дата: ${new Date().toLocaleDateString('ru-RU')} | Смена А | 14:52`, 20, 40);
-    doc.text('Оборудование: Конвейер магистральный К-3 (Инв. № КМ-40912)', 20, 48);
-    doc.text('Участок: Дробильно-обогатительный комплекс (ДОК)', 20, 56);
-    doc.text('Исполнитель: Ахметов Ербол (Слесарь-ремонтник 5 разряда)', 20, 64);
-    doc.text('Мастер смены: Сатпаев Ерлан Касымович', 20, 72);
-
-    doc.line(20, 80, 190, 80);
-
-    doc.setFontSize(11);
-    doc.text('РЕЗУЛЬТАТЫ ЗАМЕРОВ ВИБРОСКОРОСТИ (ISO 10816-3):', 20, 90);
-    doc.setFontSize(10);
-    doc.text('1. До ремонта (дефект сепаратора подшипника 22320): 4.8 мм/с [ЗОНА D - НЕДОПУСТИМАЯ]', 20, 100);
-    doc.text('2. После замены подшипника и центровки муфты: 1.2 мм/с [ЗОНА A - ОТЛИЧНО]', 20, 108);
-    doc.text('3. Температура корпуса подшипникового узла: 54.2 °C (норма < 70 °C)', 20, 116);
-    doc.text('4. Состояние уплотнения и смазки: Запрессовано Литол-24, утечек нет.', 20, 124);
-
-    doc.line(20, 135, 190, 135);
-
-    doc.text('ВЕРДИКТ ИИ-КОНТРОЛЕРА «НарядAI»:', 20, 145);
-    doc.text('Мультимодальная верификация фото «до/после»: ПОДТВЕРЖДЕНО (Оценка 5/5, 96%).', 20, 153);
-    doc.text('Соблюдение регламента ТБ и LOTO: Замечаний нет.', 20, 161);
-
-    doc.text('Подпись исполнителя: ___________ (Ахметов Е.)', 20, 185);
-    doc.text('Подпись мастера:     ___________ (Сатпаев Е.К.)', 20, 195);
-
-    doc.save('Акт_вибродиагностики_К-3.pdf');
+    printVibroReportPdf();
   };
 
   const handlePrintWorkOrderPdf = (order: WorkOrder) => {
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text('АО «КОСТАНАЙСКИЕ МИНЕРАЛЫ»', 20, 20);
-    doc.setFontSize(13);
-    doc.text(`НАРЯД-ЗАДАНИЕ ${order.number}`, 20, 30);
-    doc.setFontSize(10);
-    doc.text(`Статус: ${order.status.toUpperCase()} | Приоритет: ${order.priority.toUpperCase()}`, 20, 40);
-    doc.text(`Оборудование: ${order.equipmentName}`, 20, 48);
-    doc.text(`Исполнитель: ${order.assignedWorkerName}`, 20, 56);
-    doc.text(`Выдал мастер: ${order.issuedByMasterName}`, 20, 64);
-    doc.text(`Создан: ${new Date(order.createdAt).toLocaleString('ru-RU')}`, 20, 72);
-    doc.text(`Срок устранения: ${new Date(order.deadlineAt).toLocaleString('ru-RU')}`, 20, 80);
-
-    doc.line(20, 88, 190, 88);
-    doc.setFontSize(11);
-    doc.text('ОПИСАНИЕ РАБОТ И ДЕФЕКТА:', 20, 98);
-    doc.setFontSize(10);
-    doc.text(order.title, 20, 108);
-    doc.text(order.description, 20, 116);
-
-    doc.line(20, 128, 190, 128);
-    doc.setFontSize(11);
-    doc.text('ТРЕБОВАНИЯ ТЕХНИКИ БЕЗОПАСНОСТИ (ТБ-12):', 20, 138);
-    doc.setFontSize(10);
-    doc.text('- Обязательное обесточивание привода и вывешивание плаката «НЕ ВКЛЮЧАТЬ! РАБОТАЮТ ЛЮДИ».', 20, 146);
-    doc.text('- Применение каски, защитных очков, рукавиц и виброзащитной обуви.', 20, 154);
-    doc.text('- Фотофиксация состояния узла до начала и после окончания работ.', 20, 162);
-
-    doc.save(`Наряд_${order.number}.pdf`);
+    printWorkOrderPdf(order);
   };
 
   const handleExportXlsx = () => {

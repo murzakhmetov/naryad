@@ -15,6 +15,7 @@ import {
   User,
   Sun,
   Moon,
+  Layers,
 } from 'lucide-react';
 import type { Language } from '../utils/i18n';
 import { I18N } from '../utils/i18n';
@@ -23,12 +24,13 @@ import { workOrderStore } from '../store/workOrderStore';
 import { getGeminiApiKey, setGeminiApiKey, getGeminiModel } from '../services/aiService';
 
 interface HeaderNavProps {
-  currentView: 'landing' | 'dashboard' | 'analytics';
-  onSelectView: (view: 'landing' | 'dashboard' | 'analytics') => void;
+  currentView: 'landing' | 'dashboard' | 'analytics' | 'admin';
+  onSelectView: (view: 'landing' | 'dashboard' | 'analytics' | 'admin') => void;
   lang: Language;
   onToggleLang: () => void;
   notifications: PushNotification[];
-  userRole?: 'master' | 'worker';
+  userRole?: 'master' | 'head' | 'admin';
+  onSelectRole?: (role: 'master' | 'head' | 'admin') => void;
   userEmail?: string;
   onLogout?: () => void;
   theme?: 'light' | 'dark';
@@ -42,6 +44,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   onToggleLang,
   notifications,
   userRole,
+  onSelectRole,
   userEmail,
   onLogout,
   theme = 'light',
@@ -76,7 +79,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   };
 
   const navItems: {
-    id: 'landing' | 'dashboard' | 'analytics';
+    id: 'landing' | 'dashboard' | 'analytics' | 'admin';
     label: string;
     icon: React.ComponentType<{ className?: string }>;
     desc: string;
@@ -98,6 +101,12 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
       label: t.navAnalytics,
       icon: BarChart3,
       desc: 'Поиск аномалий за 90 дней',
+    },
+    {
+      id: 'admin',
+      label: 'Справочники',
+      icon: Layers,
+      desc: 'НСИ: участки, оборудование, ТМЦ',
     },
   ];
 
@@ -154,14 +163,49 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
         <div className="flex items-center space-x-2 shrink-0">
 
           {userRole && (
-            <div className="hidden xl:flex items-center space-x-2 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08]">
-              <User className="w-3.5 h-3.5 text-blue-400" />
-              <span className="text-[11px] text-slate-300">
-                {userRole === 'master' ? 'Мастер' : 'Исполнитель'}
-              </span>
-              {userEmail && (
-                <span className="text-[10px] text-slate-500 max-w-[120px] truncate">{userEmail}</span>
-              )}
+            <div className="hidden lg:flex items-center p-0.5 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectRole?.('master');
+                  onSelectView('dashboard');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                  userRole === 'master'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Мастер смены
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectRole?.('head');
+                  onSelectView('analytics');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                  userRole === 'head'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Руководитель
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onSelectRole?.('admin');
+                  onSelectView('admin');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                  userRole === 'admin'
+                    ? 'bg-cyan-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Администратор
+              </button>
             </div>
           )}
 
@@ -335,16 +379,55 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
           </div>
 
           {userRole && (
-            <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-white/[0.06]">
-              <div className="flex items-center space-x-2">
-                <User className="w-3.5 h-3.5 text-blue-400" />
-                <span>{userRole === 'master' ? 'Мастер' : 'Исполнитель'}</span>
-                {userEmail && <span className="text-slate-500 text-[10px]">({userEmail})</span>}
+            <div className="pt-2 border-t border-white/[0.06] space-y-2">
+              <div className="text-[11px] text-slate-400">Роль в веб-панели:</div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectRole?.('master');
+                    onSelectView('dashboard');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`p-1.5 rounded-lg text-center text-xs font-bold transition-all ${
+                    userRole === 'master' ? 'bg-blue-600 text-white' : 'bg-white/[0.04] text-slate-400'
+                  }`}
+                >
+                  Мастер
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectRole?.('head');
+                    onSelectView('analytics');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`p-1.5 rounded-lg text-center text-xs font-bold transition-all ${
+                    userRole === 'head' ? 'bg-indigo-600 text-white' : 'bg-white/[0.04] text-slate-400'
+                  }`}
+                >
+                  Руководитель
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectRole?.('admin');
+                    onSelectView('admin');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`p-1.5 rounded-lg text-center text-xs font-bold transition-all ${
+                    userRole === 'admin' ? 'bg-cyan-600 text-white' : 'bg-white/[0.04] text-slate-400'
+                  }`}
+                >
+                  Администратор
+                </button>
               </div>
               {onLogout && (
-                <button onClick={onLogout} className="text-red-400 hover:underline text-[11px]">
-                  Выйти
-                </button>
+                <div className="flex justify-end pt-1">
+                  <button onClick={onLogout} className="text-red-400 hover:underline text-[11px]">
+                    Выйти из аккаунта
+                  </button>
+                </div>
               )}
             </div>
           )}
