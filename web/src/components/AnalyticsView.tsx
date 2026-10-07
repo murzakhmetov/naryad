@@ -142,7 +142,6 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     workOrderStore.showToast('Сброс данных', 'Возвращен эталонный датасет (520 нарядов АО «Костанайские Минералы»)', 'info');
   };
 
-  // Breakdown counts by equipment
   const equipmentStats = useMemo(() => {
     const counts: Record<string, { count: number; downtime: number; name: string }> = {};
     activeOrders.forEach((o) => {
@@ -158,7 +157,6 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
       .slice(0, 6);
   }, [activeOrders]);
 
-  // Fault codes distribution
   const faultStats = useMemo(() => {
     const catCounts: Record<string, number> = {
       'Механика (М)': 0,
@@ -180,7 +178,6 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     return catCounts;
   }, [orders]);
 
-  // Chart 1: Top Problem Equipment
   const equipmentBarData = {
     labels: equipmentStats.map((e) => e.name.length > 20 ? e.name.slice(0, 18) + '...' : e.name),
     datasets: [
@@ -199,7 +196,6 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     ],
   };
 
-  // Chart 2: Fault categories
   const faultDoughnutData = {
     labels: Object.keys(faultStats),
     datasets: [
@@ -211,7 +207,6 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     ],
   };
 
-  // Export to Excel
   const handleExportExcel = () => {
     const exportData = orders.map((o) => ({
       'Номер наряда': o.number,
@@ -233,7 +228,6 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     XLSX.writeFile(wb, 'NaryadAI_Otchet_Kostanai_Minerals.xlsx');
   };
 
-  // Export to PDF
   const handleExportPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(16);

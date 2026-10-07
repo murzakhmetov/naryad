@@ -23,14 +23,12 @@ import { I18N } from '../utils/i18n';
 
 interface LandingViewProps {
   onOpenDashboard: () => void;
-  onOpenDemo: () => void;
   onOpenAnalytics: () => void;
   lang: Language;
 }
 
 export const LandingView: React.FC<LandingViewProps> = ({
   onOpenDashboard,
-  onOpenDemo,
   onOpenAnalytics,
   lang,
 }) => {
@@ -83,7 +81,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-28 text-center relative z-10">
 
         <div
-          onClick={onOpenDemo}
+          onClick={onOpenDashboard}
           className="inline-flex items-center space-x-2.5 px-3.5 py-1.5 rounded-full bg-white/[0.04] hover:bg-white/[0.07] border border-white/[0.08] text-xs text-[#8A8F98] hover:text-white transition-all cursor-pointer mb-8 backdrop-blur-md"
         >
           <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
@@ -117,14 +115,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
           >
             <span>Открыть панель мастера</span>
             <ChevronRight className="w-4 h-4 text-slate-700" />
-          </button>
-
-          <button
-            onClick={onOpenDemo}
-            className="flex items-center space-x-2 px-5 py-3 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] text-white border border-white/[0.08] font-medium text-xs sm:text-sm transition-all active:scale-95"
-          >
-            <Zap className="w-4 h-4 text-emerald-400" />
-            <span>Демо-сценарий (7 мин)</span>
           </button>
 
           <button
@@ -381,12 +371,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
               className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-md transition-all active:scale-95"
             >
               Перейти в панель смены мастера
-            </button>
-            <button
-              onClick={onOpenDemo}
-              className="px-6 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-white border border-white/[0.08] font-medium text-xs transition-all active:scale-95"
-            >
-              Запустить 7-минутное демо
             </button>
             <a
               href="/naryad-ai-release.apk"

@@ -1,11 +1,189 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
-import 'models/models.dart';
-import 'data/mock_data.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 
-void main() {
+final supabase = Supabase.instance.client;
+
+class EmployeeData {
+  final String id;
+  final String fullName;
+  final String specialty;
+  final int rank;
+  final String role;
+  String status;
+  int rating;
+  int onTimeRate;
+  double reworkRate;
+  String? currentOrderNumber;
+
+  EmployeeData({
+    required this.id,
+    required this.fullName,
+    required this.specialty,
+    required this.rank,
+    required this.role,
+    this.status = 'free',
+    this.rating = 95,
+    this.onTimeRate = 95,
+    this.reworkRate = 2.0,
+    this.currentOrderNumber,
+  });
+}
+
+class WorkOrderModel {
+  final String id;
+  final String number;
+  final String title;
+  final String description;
+  final String equipmentName;
+  final String workshopName;
+  final String priority;
+  final String createdAt;
+  final String deadlineAt;
+  String status;
+  String? photoBeforeUrl;
+  String? photoAfterUrl;
+  String? faultCode;
+  String? materialsSpent;
+  String? performedWork;
+  String? workerComment;
+  int aiScore;
+  String? aiVerdict;
+  String? aiNotes;
+  bool isOverdue;
+  String assignedWorkerId;
+  String assignedWorkerName;
+
+  WorkOrderModel({
+    required this.id,
+    required this.number,
+    required this.title,
+    required this.description,
+    required this.equipmentName,
+    required this.workshopName,
+    required this.priority,
+    required this.createdAt,
+    required this.deadlineAt,
+    required this.status,
+    required this.assignedWorkerId,
+    required this.assignedWorkerName,
+    this.photoBeforeUrl,
+    this.photoAfterUrl,
+    this.faultCode,
+    this.materialsSpent,
+    this.performedWork,
+    this.workerComment,
+    this.aiScore = 0,
+    this.aiVerdict,
+    this.aiNotes,
+    this.isOverdue = false,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'number': number,
+    'title': title,
+    'description': description,
+    'equipmentName': equipmentName,
+    'workshopName': workshopName,
+    'priority': priority,
+    'createdAt': createdAt,
+    'deadlineAt': deadlineAt,
+    'status': status,
+    'assignedWorkerId': assignedWorkerId,
+    'assignedWorkerName': assignedWorkerName,
+    'photoBeforeUrl': photoBeforeUrl,
+    'photoAfterUrl': photoAfterUrl,
+    'faultCode': faultCode,
+    'materialsSpent': materialsSpent,
+    'performedWork': performedWork,
+    'workerComment': workerComment,
+    'aiScore': aiScore,
+    'aiVerdict': aiVerdict,
+    'aiNotes': aiNotes,
+    'isOverdue': isOverdue,
+  };
+
+  factory WorkOrderModel.fromJson(Map<String, dynamic> json) => WorkOrderModel(
+    id: json['id'] ?? '',
+    number: json['number'] ?? '',
+    title: json['title'] ?? '',
+    description: json['description'] ?? '',
+    equipmentName: json['equipmentName'] ?? json['equipment_name'] ?? 'Оборудование цеха',
+    workshopName: json['workshopName'] ?? 'Дробильно-обогатительный комплекс',
+    priority: json['priority'] ?? 'normal',
+    createdAt: json['createdAt'] ?? json['created_at'] ?? DateTime.now().toIso8601String(),
+    deadlineAt: json['deadlineAt'] ?? json['deadline_at'] ?? DateTime.now().toIso8601String(),
+    status: json['status'] ?? 'issued',
+    assignedWorkerId: json['assignedWorkerId'] ?? json['assigned_worker_id'] ?? 'emp_1',
+    assignedWorkerName: json['assignedWorkerName'] ?? json['assigned_worker_name'] ?? 'Ахметов Ербол',
+    photoBeforeUrl: json['photoBeforeUrl'] ?? json['photo_before_url'],
+    photoAfterUrl: json['photoAfterUrl'] ?? json['photo_after_url'],
+    faultCode: json['faultCode'] ?? json['fault_code'],
+    materialsSpent: json['materialsSpent'] is String ? json['materialsSpent'] : jsonEncode(json['materialsSpent'] ?? []),
+    performedWork: json['performedWork'] ?? json['performed_work_description'],
+    workerComment: json['workerComment'] ?? json['worker_comment'],
+    aiScore: json['aiScore'] ?? 0,
+    aiVerdict: json['aiVerdict'],
+    aiNotes: json['aiNotes'],
+    isOverdue: json['isOverdue'] ?? json['is_overdue'] ?? false,
+  );
+}
+
+final List<EmployeeData> defaultStaff = [
+  EmployeeData(id: 'master_1', fullName: 'Сатпаев Ерлан Касымович', specialty: 'Старший мастер смены А', rank: 6, role: 'master', status: 'busy', rating: 98, onTimeRate: 97),
+  EmployeeData(id: 'master_2', fullName: 'Морозов Алексей Викторович', specialty: 'Мастер смены Б', rank: 6, role: 'master', status: 'busy', rating: 94, onTimeRate: 93),
+  EmployeeData(id: 'emp_1', fullName: 'Ахметов Ербол Каиржанович', specialty: 'Слесарь-ремонтник', rank: 5, role: 'worker', status: 'free', rating: 96, onTimeRate: 98),
+  EmployeeData(id: 'emp_2', fullName: 'Дуйсенов Серик Болатович', specialty: 'Слесарь-ремонтник', rank: 4, role: 'worker', status: 'busy', currentOrderNumber: '№147', rating: 91, onTimeRate: 92),
+  EmployeeData(id: 'emp_3', fullName: 'Иванов Дмитрий Сергеевич', specialty: 'Слесарь-ремонтник (бригадир)', rank: 6, role: 'worker', status: 'queued', rating: 97, onTimeRate: 99),
+  EmployeeData(id: 'emp_4', fullName: 'Токаев Марат Жасланович', specialty: 'Слесарь-ремонтник', rank: 4, role: 'worker', status: 'free', rating: 74, onTimeRate: 85, reworkRate: 28.4),
+  EmployeeData(id: 'emp_5', fullName: 'Ковалев Виктор Андреевич', specialty: 'Слесарь-монтажник', rank: 5, role: 'worker', status: 'offline', rating: 93, onTimeRate: 94),
+  EmployeeData(id: 'emp_6', fullName: 'Нурланов Бауыржан Кайратович', specialty: 'Электромонтер (бригадир)', rank: 6, role: 'worker', status: 'free', rating: 99, onTimeRate: 99),
+  EmployeeData(id: 'emp_7', fullName: 'Васильев Олег Петрович', specialty: 'Электромонтер', rank: 5, role: 'worker', status: 'busy', currentOrderNumber: '№148', rating: 92, onTimeRate: 93),
+  EmployeeData(id: 'emp_8', fullName: 'Жакупов Азамат Маликович', specialty: 'Электрослесарь КИПиА', rank: 5, role: 'worker', status: 'free', rating: 95, onTimeRate: 96),
+  EmployeeData(id: 'emp_9', fullName: 'Сидоров Антон Николаевич', specialty: 'Электромонтер', rank: 4, role: 'worker', status: 'offline', rating: 88, onTimeRate: 90),
+  EmployeeData(id: 'emp_10', fullName: 'Омаров Руслан Серикович', specialty: 'Электрослесарь', rank: 5, role: 'worker', status: 'offline', rating: 94, onTimeRate: 95),
+  EmployeeData(id: 'emp_11', fullName: 'Касымов Нуржан Ардакович', specialty: 'Электрогазосварщик (бригадир)', rank: 6, role: 'worker', status: 'busy', rating: 98, onTimeRate: 97),
+  EmployeeData(id: 'emp_12', fullName: 'Бекенов Талгат Жандосович', specialty: 'Слесарь по гидравлике', rank: 5, role: 'worker', status: 'free', rating: 94, onTimeRate: 95),
+  EmployeeData(id: 'emp_13', fullName: 'Кузнецов Михаил Васильевич', specialty: 'Электрогазосварщик', rank: 5, role: 'worker', status: 'queued', rating: 90, onTimeRate: 91),
+  EmployeeData(id: 'emp_14', fullName: 'Смагулов Данияр Муратович', specialty: 'Слесарь-ремонтник', rank: 4, role: 'worker', status: 'offline', rating: 87, onTimeRate: 89),
+  EmployeeData(id: 'emp_15', fullName: 'Попов Артем Сергеевич', specialty: 'Машинист насосных установок', rank: 4, role: 'worker', status: 'offline', rating: 91, onTimeRate: 92),
+];
+
+final List<String> equipmentNames = [
+  'Насос шламовый 1ГрТ 400/40',
+  'Дробилка конусная КМД-1750Т',
+  'Дробилка конусная КСД-2200',
+  'Дробилка щековая СМД-118',
+  'Конвейер ленточный К-3',
+  'Конвейер магистральный К-5',
+  'Питатель пластинчатый ПП-1-15',
+  'Грохот инерционный ГИТ-51М',
+  'Маслостанция дробилки МС-200',
+  'Мельница стержневая МШР-3600',
+  'Мельница шаровая МШЦ-3200',
+  'Классификатор спиральный КСН-24',
+  'Сепаратор магнитный ПБМ-ПП',
+  'Вентилятор аспирационный ВР-12',
+  'Флотомашина механическая ФМ-50',
+  'Кран мостовой г/п 20т',
+  'Станок токарный 1К62',
+  'Компрессор винтовой ВВ-50/8',
+  'Пресс гидравлический П6330',
+  'Сварочный выпрямитель ВДУ-506',
+  'Автосамосвал БелАЗ-7555',
+  'Экскаватор ЭКГ-5А',
+  'Погрузчик CAT 988K',
+];
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Supabase.initialize(
+    url: 'https://pfmiftikcnoesozqskfz.supabase.co',
+    anonKey: 'sb_publishable_sCwXPQDWrNK-AbcMZhvEnw_3Dr1vDyi',
+  );
   runApp(const NaryadAiApp());
 }
 
@@ -15,220 +193,481 @@ class NaryadAiApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const CupertinoApp(
-      title: 'НарядAI - АО Костанайские Минералы',
+      title: 'НарядAI',
       theme: CupertinoThemeData(
         brightness: Brightness.light,
-        primaryColor: CupertinoColors.activeBlue,
-        scaffoldBackgroundColor: Color(0xFFF2F2F7),
-        barBackgroundColor: Color(0xCCFFFFFF),
+        primaryColor: Color(0xFF2563EB),
+        scaffoldBackgroundColor: Color(0xFFF1F5F9),
+        barBackgroundColor: Color(0xF8FFFFFF),
       ),
-      home: MainTabBarScreen(),
+      home: AuthScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
 }
 
-class MainTabBarScreen extends StatefulWidget {
-  const MainTabBarScreen({super.key});
+class AuthScreen extends StatefulWidget {
+  const AuthScreen({super.key});
 
   @override
-  State<MainTabBarScreen> createState() => _MainTabBarScreenState();
+  State<AuthScreen> createState() => _AuthScreenState();
 }
 
-class _MainTabBarScreenState extends State<MainTabBarScreen> {
-  late List<WorkOrderModel> _orders;
-  bool _isKazakh = false;
+class _AuthScreenState extends State<AuthScreen> {
+  String _role = 'worker';
+  String _selectedWorkerId = 'emp_1';
+  final _emailCtrl = TextEditingController(text: 'akhmetov@kostanai.kz');
+  final _passCtrl = TextEditingController(text: '123456');
 
-  @override
-  void initState() {
-    super.initState();
-    _orders = getInitialOrders();
-  }
+  void _login() {
+    String workerName = 'Ахметов Ербол Каиржанович';
+    if (_role == 'worker') {
+      final found = defaultStaff.firstWhere((e) => e.id == _selectedWorkerId, orElse: () => defaultStaff[2]);
+      workerName = found.fullName;
+    } else {
+      workerName = 'Сатпаев Ерлан Касымович (Старший мастер)';
+    }
 
-  void _updateOrder(WorkOrderModel updated) {
-    setState(() {
-      final index = _orders.indexWhere((o) => o.id == updated.id);
-      if (index != -1) {
-        _orders[index] = updated;
-      } else {
-        _orders.insert(0, updated);
-      }
-    });
+    Navigator.pushReplacement(
+      context,
+      CupertinoPageRoute(
+        builder: (_) => MainScreen(
+          role: _role,
+          workerId: _selectedWorkerId,
+          workerName: workerName,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return CupertinoTabScaffold(
-      tabBar: CupertinoTabBar(
-        activeColor: CupertinoColors.activeBlue,
-        inactiveColor: CupertinoColors.systemGrey,
-        items: [
-          BottomNavigationBarItem(
-            icon: const Icon(CupertinoIcons.heart_fill),
-            label: _isKazakh ? 'Жиынтық' : 'Сводка',
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(CupertinoIcons.square_list_fill),
-            label: _isKazakh ? 'Нарядтар' : 'Наряды',
-          ),
-          BottomNavigationBarItem(
-            icon: const Icon(CupertinoIcons.sparkles),
-            label: _isKazakh ? 'ЖИ-Көмекші' : 'ИИ-Ассистент',
-          ),
-        ],
+    return CupertinoPageScaffold(
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('НарядAI - Авторизация'),
       ),
-      tabBuilder: (context, index) {
-        switch (index) {
-          case 0:
-            return SummaryScreen(
-              orders: _orders,
-              isKazakh: _isKazakh,
-              onToggleLang: () => setState(() => _isKazakh = !_isKazakh),
-              onUpdateOrder: _updateOrder,
-            );
-          case 1:
-            return OrdersListScreen(
-              orders: _orders,
-              isKazakh: _isKazakh,
-              onUpdateOrder: _updateOrder,
-            );
-          case 2:
-            return AiAssistantScreen(isKazakh: _isKazakh);
-          default:
-            return Container();
-        }
-      },
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 20),
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF06B6D4)]),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Center(
+                  child: Icon(CupertinoIcons.shield_fill, color: CupertinoColors.white, size: 36),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'НарядAI',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+              ),
+              const Text(
+                'АО «Костанайские Минералы»',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              ),
+              const SizedBox(height: 32),
+              CupertinoSlidingSegmentedControl<String>(
+                groupValue: _role,
+                children: const {
+                  'master': Padding(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text('Мастер смены')),
+                  'worker': Padding(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text('Исполнитель')),
+                },
+                onValueChanged: (v) {
+                  if (v != null) {
+                    setState(() {
+                      _role = v;
+                      if (_role == 'master') {
+                        _emailCtrl.text = 'satpayev@kostanai.kz';
+                      } else {
+                        _emailCtrl.text = 'akhmetov@kostanai.kz';
+                      }
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 20),
+              if (_role == 'worker') ...[
+                const Text('Выберите сотрудника смены:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(color: CupertinoColors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFCBD5E1))),
+                  child: CupertinoButton(
+                    padding: EdgeInsets.zero,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          defaultStaff.firstWhere((e) => e.id == _selectedWorkerId).fullName,
+                          style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A), fontWeight: FontWeight.w500),
+                        ),
+                        const Icon(CupertinoIcons.chevron_down, size: 16, color: Color(0xFF64748B)),
+                      ],
+                    ),
+                    onPressed: () {
+                      showCupertinoModalPopup(
+                        context: context,
+                        builder: (ctx) => Container(
+                          height: 260,
+                          color: CupertinoColors.white,
+                          child: CupertinoPicker(
+                            itemExtent: 40,
+                            scrollController: FixedExtentScrollController(
+                              initialItem: defaultStaff.where((e) => e.role == 'worker').toList().indexWhere((e) => e.id == _selectedWorkerId),
+                            ),
+                            onSelectedItemChanged: (idx) {
+                              final workers = defaultStaff.where((e) => e.role == 'worker').toList();
+                              setState(() => _selectedWorkerId = workers[idx].id);
+                            },
+                            children: defaultStaff.where((e) => e.role == 'worker').map((w) => Center(child: Text('${w.fullName} (${w.status == "free" ? "Свободен" : "В работе"})', style: const TextStyle(fontSize: 13)))).toList(),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              CupertinoTextField(
+                controller: _emailCtrl,
+                placeholder: 'Рабочий Email',
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: CupertinoColors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFCBD5E1))),
+              ),
+              const SizedBox(height: 12),
+              CupertinoTextField(
+                controller: _passCtrl,
+                placeholder: 'Пароль',
+                obscureText: true,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: CupertinoColors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFCBD5E1))),
+              ),
+              const SizedBox(height: 24),
+              CupertinoButton.filled(
+                onPressed: _login,
+                borderRadius: BorderRadius.circular(12),
+                child: const Text('Войти в систему', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Связка: Supabase Realtime + Gemini 3.1 Flash Lite',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
 
-class SummaryScreen extends StatelessWidget {
-  final List<WorkOrderModel> orders;
-  final bool isKazakh;
-  final VoidCallback onToggleLang;
-  final ValueChanged<WorkOrderModel> onUpdateOrder;
+class MainScreen extends StatefulWidget {
+  final String role;
+  final String workerId;
+  final String workerName;
 
-  const SummaryScreen({
+  const MainScreen({
     super.key,
-    required this.orders,
-    required this.isKazakh,
-    required this.onToggleLang,
-    required this.onUpdateOrder,
+    required this.role,
+    required this.workerId,
+    required this.workerName,
   });
 
   @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  final List<WorkOrderModel> _orders = [];
+  final List<EmployeeData> _staff = List.from(defaultStaff);
+  late RealtimeChannel _channel;
+
+  @override
+  void initState() {
+    super.initState();
+    _initInitialOrders();
+    _setupSupabaseRealtime();
+  }
+
+  void _initInitialOrders() {
+    _orders.addAll([
+      WorkOrderModel(
+        id: 'ord_active_1',
+        number: '№147',
+        title: 'Аварийный перегрев подшипника привода КМД-1750',
+        description: 'Дробилка КМД-1750, участок дробления. Температура опорного подшипника превысила +85°C.',
+        equipmentName: 'Дробилка конусная КМД-1750Т',
+        workshopName: 'Участок дробления',
+        priority: 'emergency',
+        createdAt: DateTime.now().subtract(const Duration(minutes: 55)).toIso8601String(),
+        deadlineAt: DateTime.now().subtract(const Duration(minutes: 10)).toIso8601String(),
+        status: 'in_progress',
+        assignedWorkerId: 'emp_2',
+        assignedWorkerName: 'Дуйсенов Серик Болатович',
+        isOverdue: true,
+        photoBeforeUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80',
+        faultCode: 'М-02',
+      ),
+      WorkOrderModel(
+        id: 'ord_active_2',
+        number: '№148',
+        title: 'Ревизия силового кабеля и пускателя насоса 1ГрТ',
+        description: 'Участок обогащения, насос шламовый 1ГрТ. Запах гари в районе клеммной коробки двигателя 110 кВт.',
+        equipmentName: 'Насос шламовый 1ГрТ 400/40',
+        workshopName: 'Участок обогащения',
+        priority: 'high',
+        createdAt: DateTime.now().subtract(const Duration(minutes: 25)).toIso8601String(),
+        deadlineAt: DateTime.now().add(const Duration(minutes: 65)).toIso8601String(),
+        status: 'in_progress',
+        assignedWorkerId: 'emp_7',
+        assignedWorkerName: 'Васильев Олег Петрович',
+        photoBeforeUrl: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80',
+        faultCode: 'Э-02',
+      ),
+    ]);
+  }
+
+  void _setupSupabaseRealtime() {
+    _channel = supabase.channel('naryad_sync');
+    _channel.onBroadcast(
+      event: 'update_order',
+      callback: (payload) {
+        if (payload['order'] != null) {
+          final updated = WorkOrderModel.fromJson(Map<String, dynamic>.from(payload['order']));
+          setState(() {
+            final idx = _orders.indexWhere((o) => o.id == updated.id);
+            if (idx != -1) {
+              _orders[idx] = updated;
+            } else {
+              _orders.insert(0, updated);
+            }
+            _updateStaffState(updated);
+          });
+          _checkNotifications(updated);
+        }
+      },
+    ).subscribe();
+  }
+
+  void _updateStaffState(WorkOrderModel order) {
+    final idx = _staff.indexWhere((e) => e.id == order.assignedWorkerId);
+    if (idx != -1) {
+      if (order.status == 'in_progress' || order.status == 'accepted') {
+        _staff[idx].status = 'busy';
+        _staff[idx].currentOrderNumber = order.number;
+      } else if (order.status == 'closed' || order.status == 'completed') {
+        _staff[idx].status = 'free';
+        _staff[idx].currentOrderNumber = null;
+      } else if (order.status == 'queued') {
+        _staff[idx].status = 'queued';
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _channel.unsubscribe();
+    super.dispose();
+  }
+
+  void _checkNotifications(WorkOrderModel order) {
+    if (widget.role == 'worker' && order.assignedWorkerId == widget.workerId && order.status == 'issued') {
+      _showNotification('Новый аварийный наряд!', '${order.number}: ${order.title}. Нажмите «Принять».');
+    }
+    if (order.isOverdue && order.status != 'completed' && order.status != 'closed') {
+      _showNotification('Внимание: Просрочка!', 'Наряд ${order.number} (${order.equipmentName}) превысил нормативное время.');
+    }
+  }
+
+  void _showNotification(String title, String body) {
+    showCupertinoDialog(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(body),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('Принято'),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _broadcastOrder(WorkOrderModel order) {
+    _channel.sendBroadcastMessage(event: 'update_order', payload: {'order': order.toJson()});
+    setState(() {
+      final idx = _orders.indexWhere((o) => o.id == order.id);
+      if (idx != -1) {
+        _orders[idx] = order;
+      } else {
+        _orders.insert(0, order);
+      }
+      _updateStaffState(order);
+    });
+  }
+
+  Future<String?> _uploadPhoto(ImageSource source) async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(source: source, imageQuality: 85);
+    if (file == null) return null;
+    final bytes = await file.readAsBytes();
+    final ext = file.path.split('.').last;
+    final fileName = 'orders/${DateTime.now().millisecondsSinceEpoch}.$ext';
+    try {
+      await supabase.storage.from('some').uploadBinary(fileName, bytes);
+      return supabase.storage.from('some').getPublicUrl(fileName);
+    } catch (_) {
+      return 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80';
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final activeOrders = orders.where((o) => o.status != 'closed').toList();
+    final tabs = widget.role == 'master'
+        ? const [
+            BottomNavigationBarItem(icon: Icon(CupertinoIcons.person_2_fill), label: 'Смена'),
+            BottomNavigationBarItem(icon: Icon(CupertinoIcons.square_list_fill), label: 'Наряды'),
+            BottomNavigationBarItem(icon: Icon(CupertinoIcons.chart_bar_square_fill), label: 'Рейтинг'),
+            BottomNavigationBarItem(icon: Icon(CupertinoIcons.sparkles), label: 'ИИ'),
+          ]
+        : const [
+            BottomNavigationBarItem(icon: Icon(CupertinoIcons.square_list_fill), label: 'Мои наряды'),
+            BottomNavigationBarItem(icon: Icon(CupertinoIcons.sparkles), label: 'ИИ-Помощник'),
+          ];
+
+    return CupertinoTabScaffold(
+      tabBar: CupertinoTabBar(items: tabs),
+      tabBuilder: (context, index) {
+        if (widget.role == 'master') {
+          switch (index) {
+            case 0:
+              return _buildShiftPanelTab();
+            case 1:
+              return _buildOrdersTab();
+            case 2:
+              return _buildRatingTab();
+            default:
+              return AiAssistantScreen(userName: widget.workerName);
+          }
+        } else {
+          if (index == 0) return _buildOrdersTab();
+          return AiAssistantScreen(userName: widget.workerName);
+        }
+      },
+    );
+  }
+
+  Widget _buildShiftPanelTab() {
+    final freeCount = _staff.where((e) => e.role == 'worker' && e.status == 'free').length;
+    final busyCount = _staff.where((e) => e.role == 'worker' && e.status == 'busy').length;
 
     return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: Text(
-          isKazakh ? '«Қостанай Минералдары» АҚ' : 'АО «Костанайские Минералы»',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-        ),
-        trailing: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: onToggleLang,
-          child: Text(
-            isKazakh ? 'RU' : 'KZ',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('Панель смены мастера'),
       ),
       child: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.all(16),
           children: [
-            
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  isKazakh ? 'Сводка' : 'Сводка',
-                  style: const TextStyle(fontSize: 34, fontWeight: FontWeight.bold, letterSpacing: -1),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.activeGreen.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFF86EFAC))),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Свободно', style: TextStyle(fontSize: 12, color: Color(0xFF166534), fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        Text('$freeCount чел', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF14532D))),
+                      ],
+                    ),
                   ),
-                  child: Text(
-                    isKazakh ? 'А ауысымы' : 'Смена А',
-                    style: const TextStyle(
-                      color: CupertinoColors.systemGreen,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFFCD34D))),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('В работе', style: TextStyle(fontSize: 12, color: Color(0xFF92400E), fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        Text('$busyCount чел', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF78350F))),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              isKazakh ? '16 қазан 2026 ж. • Ахметов Ербол (5 разряд)' : '16 октября 2026 г. • Ахметов Ербол (5 разряд)',
-              style: const TextStyle(fontSize: 13, color: CupertinoColors.systemGrey),
-            ),
-            const SizedBox(height: 16),
-
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: CupertinoColors.white,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        isKazakh ? 'КӨРСЕТКІШТЕР' : 'ПОКАЗАТЕЛИ СМЕНЫ',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: CupertinoColors.systemGrey),
-                      ),
-                      const Icon(CupertinoIcons.chart_bar_alt_fill, size: 16, color: CupertinoColors.activeBlue),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildMetricItem(
-                        title: isKazakh ? 'ЖИ рейтингі' : 'Рейтинг ИИ',
-                        value: '96%',
-                        color: CupertinoColors.activeGreen,
-                      ),
-                      _buildMetricItem(
-                        title: isKazakh ? 'Мерзімінде' : 'В срок',
-                        value: '98%',
-                        color: CupertinoColors.activeBlue,
-                      ),
-                      _buildMetricItem(
-                        title: isKazakh ? 'Нарядтар' : 'Наряды',
-                        value: '${orders.length}',
-                        color: CupertinoColors.systemIndigo,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            Text(
-              isKazakh ? 'Ағымдағы нарядтар' : 'Текущие наряды',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
+            const SizedBox(height: 20),
+            const Text('Персонал смены (15 исполнителей):', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
             const SizedBox(height: 8),
-
-            ...activeOrders.map((order) => OrderCardWidget(
-              order: order,
-              isKazakh: isKazakh,
-              onUpdateOrder: onUpdateOrder,
+            ..._staff.where((e) => e.role == 'worker').map((w) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: CupertinoColors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
+              child: Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: w.status == 'free' ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Text(
+                        w.fullName.substring(0, 1),
+                        style: TextStyle(fontWeight: FontWeight.bold, color: w.status == 'free' ? const Color(0xFF166534) : const Color(0xFF92400E)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(w.fullName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF0F172A))),
+                        Text('${w.specialty} (${w.rank} разряд)', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: w.status == 'free' ? const Color(0xFF22C55E) : const Color(0xFFF59E0B),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          w.status == 'free' ? 'Свободен' : 'В работе',
+                          style: const TextStyle(color: CupertinoColors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text('Рейтинг: ${w.rating}%', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                    ],
+                  ),
+                ],
+              ),
             )),
           ],
         ),
@@ -236,490 +675,653 @@ class SummaryScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMetricItem({required String title, required String value, required Color color}) {
-    return Column(
-      children: [
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: color, width: 4),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            value,
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color),
+  Widget _buildOrdersTab() {
+    final filtered = widget.role == 'master'
+        ? _orders
+        : _orders.where((o) => o.assignedWorkerId == widget.workerId).toList();
+
+    return CupertinoPageScaffold(
+      navigationBar: CupertinoNavigationBar(
+        middle: Text(widget.role == 'master' ? 'Наряды смены' : 'Мои наряды'),
+        trailing: widget.role == 'master'
+            ? CupertinoButton(
+                padding: EdgeInsets.zero,
+                onPressed: _showCreateOrderDialog,
+                child: const Icon(CupertinoIcons.plus_circle_fill, size: 28),
+              )
+            : null,
+      ),
+      child: SafeArea(
+        child: filtered.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(CupertinoIcons.doc_text, size: 48, color: Color(0xFF94A3B8)),
+                    const SizedBox(height: 12),
+                    Text(
+                      widget.role == 'master' ? 'Нет активных нарядов' : 'У вас пока нет назначенных нарядов',
+                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
+                    ),
+                  ],
+                ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: filtered.length,
+                itemBuilder: (context, index) {
+                  final order = filtered[index];
+                  return OrderCardWidget(
+                    order: order,
+                    role: widget.role,
+                    currentWorkerId: widget.workerId,
+                    onUpdate: _broadcastOrder,
+                    onUploadPhoto: _uploadPhoto,
+                  );
+                },
+              ),
+      ),
+    );
+  }
+
+  Widget _buildRatingTab() {
+    final sorted = List<EmployeeData>.from(_staff.where((e) => e.role == 'worker'))..sort((a, b) => b.rating.compareTo(a.rating));
+
+    return CupertinoPageScaffold(
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('Рейтинг смены и аналитика'),
+      ),
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF0F172A)]),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Сводный отчет за смену:', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                  SizedBox(height: 6),
+                  Text('Выполнение плана ремонтов: 98.4%', style: TextStyle(color: CupertinoColors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 4),
+                  Text('Среднее время закрытия: 1 ч 42 мин • 0 повторных отказов', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 11)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text('Топ исполнителей смены:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+            const SizedBox(height: 8),
+            ...sorted.map((w) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: CupertinoColors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
+              child: Row(
+                children: [
+                  Text('${sorted.indexOf(w) + 1}.', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B), fontSize: 14)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(w.fullName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF0F172A))),
+                        Text(w.specialty, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('${w.rating}%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: w.rating >= 90 ? const Color(0xFF16A34A) : const Color(0xFFDC2626))),
+                      Text('В срок: ${w.onTimeRate}%', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
+                    ],
+                  ),
+                ],
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCreateOrderDialog() {
+    String selectedEq = equipmentNames[0];
+    String selectedPriority = 'emergency';
+    final descCtrl = TextEditingController(text: 'Течь сальника рабочего колеса насоса 1ГрТ. Устранить до запуска секции.');
+    String? photoUrl;
+    bool isUploading = false;
+
+    final freeWorkers = _staff.where((e) => e.role == 'worker' && e.status == 'free').toList();
+    EmployeeData assigned = freeWorkers.isNotEmpty ? freeWorkers[0] : _staff.firstWhere((e) => e.role == 'worker');
+
+    showCupertinoModalPopup(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.88,
+          color: CupertinoColors.white,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Создать наряд смены', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        child: const Icon(CupertinoIcons.xmark_circle_fill, color: Color(0xFF94A3B8)),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        const Text('1. Оборудование:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFCBD5E1))),
+                          child: CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(child: Text(selectedEq, style: const TextStyle(fontSize: 13, color: Color(0xFF0F172A)))),
+                                const Icon(CupertinoIcons.chevron_down, size: 14),
+                              ],
+                            ),
+                            onPressed: () {
+                              showCupertinoModalPopup(
+                                context: context,
+                                builder: (_) => Container(
+                                  height: 220,
+                                  color: CupertinoColors.white,
+                                  child: CupertinoPicker(
+                                    itemExtent: 38,
+                                    onSelectedItemChanged: (idx) => setModalState(() => selectedEq = equipmentNames[idx]),
+                                    children: equipmentNames.map((e) => Center(child: Text(e, style: const TextStyle(fontSize: 13)))).toList(),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text('2. Описание неисправности:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                        const SizedBox(height: 6),
+                        CupertinoTextField(
+                          controller: descCtrl,
+                          maxLines: 2,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFCBD5E1))),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text('3. Фото дефекта ДО ремонта (бакет some):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CupertinoButton(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                color: const Color(0xFFEFF6FF),
+                                onPressed: isUploading ? null : () async {
+                                  setModalState(() => isUploading = true);
+                                  final url = await _uploadPhoto(ImageSource.camera);
+                                  setModalState(() {
+                                    photoUrl = url;
+                                    isUploading = false;
+                                  });
+                                },
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(CupertinoIcons.camera_fill, size: 16, color: Color(0xFF2563EB)),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      isUploading ? 'Загрузка...' : (photoUrl != null ? 'Фото прикреплено' : 'Сфотографировать'),
+                                      style: const TextStyle(color: Color(0xFF2563EB), fontSize: 13, fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: const Color(0xFFEFF6FF), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFBFDBFE))),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(CupertinoIcons.sparkles, size: 16, color: Color(0xFF2563EB)),
+                                  SizedBox(width: 6),
+                                  Text('ИИ-Подбор исполнителя:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF1E40AF))),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text('Рекомендован: ${assigned.fullName} (${assigned.specialty}). Свободен в смене А, рейтинг 96%, 0 повторных отказов.', style: const TextStyle(fontSize: 11, color: Color(0xFF1E3A8A))),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  CupertinoButton.filled(
+                    onPressed: () {
+                      final newOrder = WorkOrderModel(
+                        id: 'ord_${DateTime.now().millisecondsSinceEpoch}',
+                        number: '№${150 + _orders.length}',
+                        title: 'Аварийный ремонт: $selectedEq',
+                        description: descCtrl.text,
+                        equipmentName: selectedEq,
+                        workshopName: 'Участок обогащения',
+                        priority: selectedPriority,
+                        createdAt: DateTime.now().toIso8601String(),
+                        deadlineAt: DateTime.now().add(const Duration(hours: 2)).toIso8601String(),
+                        status: 'issued',
+                        assignedWorkerId: assigned.id,
+                        assignedWorkerName: assigned.fullName,
+                        photoBeforeUrl: photoUrl ?? 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80',
+                      );
+                      _broadcastOrder(newOrder);
+                      Navigator.pop(ctx);
+                      _showNotification('Наряд выдан!', 'Наряд ${newOrder.number} отправлен ${assigned.fullName}.');
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: const Text('Выдать наряд исполнителю', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
-        const SizedBox(height: 6),
-        Text(title, style: const TextStyle(fontSize: 11, color: CupertinoColors.systemGrey)),
-      ],
+      ),
     );
   }
 }
 
-class OrderCardWidget extends StatelessWidget {
+class OrderCardWidget extends StatefulWidget {
   final WorkOrderModel order;
-  final bool isKazakh;
-  final ValueChanged<WorkOrderModel> onUpdateOrder;
+  final String role;
+  final String currentWorkerId;
+  final ValueChanged<WorkOrderModel> onUpdate;
+  final Future<String?> Function(ImageSource) onUploadPhoto;
 
   const OrderCardWidget({
     super.key,
     required this.order,
-    required this.isKazakh,
-    required this.onUpdateOrder,
+    required this.role,
+    required this.currentWorkerId,
+    required this.onUpdate,
+    required this.onUploadPhoto,
   });
 
   @override
+  State<OrderCardWidget> createState() => _OrderCardWidgetState();
+}
+
+class _OrderCardWidgetState extends State<OrderCardWidget> {
+  bool _isEvaluating = false;
+
+  @override
   Widget build(BuildContext context) {
-    final isEmergency = order.priority == 'emergency';
+    final o = widget.order;
+    final isWorker = widget.role == 'worker';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: CupertinoColors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: isEmergency ? Border.all(color: CupertinoColors.systemRed.withValues(alpha: 0.4), width: 1.5) : null,
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: o.isOverdue ? const Color(0xFFFCA5A5) : const Color(0xFFE2E8F0)),
+        boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 8, offset: Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                order.number,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: CupertinoColors.activeBlue),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: o.priority == 'emergency' ? const Color(0xFFFEE2E2) : const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '${o.number} • ${o.priority == "emergency" ? "Аварийный" : "Плановый"}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: o.priority == 'emergency' ? const Color(0xFFDC2626) : const Color(0xFF2563EB),
+                  ),
+                ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: isEmergency ? CupertinoColors.systemRed.withValues(alpha: 0.12) : CupertinoColors.systemGrey6,
-                  borderRadius: BorderRadius.circular(8),
+                  color: _statusColor(o.status),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  isEmergency ? (isKazakh ? 'Апаттық' : 'Аварийный') : (isKazakh ? 'Жоспарлы' : 'Плановый'),
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: isEmergency ? CupertinoColors.systemRed : CupertinoColors.systemGrey,
-                  ),
+                  _statusLabel(o.status),
+                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: CupertinoColors.white),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-
-          Text(
-            order.title,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, height: 1.2),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '${order.equipmentName} • ${order.workshopName}',
-            style: const TextStyle(fontSize: 12, color: CupertinoColors.systemGrey),
-          ),
           const SizedBox(height: 10),
-
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8F9FA),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Text(
-              order.description,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF2C3E50), height: 1.3),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          if (order.aiVerdict != null)
-            Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: order.aiVerdict == 'approved'
-                    ? CupertinoColors.systemGreen.withValues(alpha: 0.12)
-                    : CupertinoColors.systemYellow.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    order.aiVerdict == 'approved' ? CupertinoIcons.check_mark_circled_solid : CupertinoIcons.exclamationmark_triangle_fill,
-                    size: 18,
-                    color: order.aiVerdict == 'approved' ? CupertinoColors.systemGreen : CupertinoColors.systemYellow,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'ЖИ Вердикті: ${order.aiScore}/100. ${order.aiNotes ?? ""}',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          _buildActionButtons(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButtons(BuildContext context) {
-    if (order.status == 'issued') {
-      return Column(
-        children: [
-          SizedBox(
-            width: double.infinity,
-            height: 56, 
-            child: CupertinoButton(
-              color: CupertinoColors.activeGreen,
-              borderRadius: BorderRadius.circular(16),
-              padding: EdgeInsets.zero,
-              onPressed: () {
-                order.status = 'accepted';
-                onUpdateOrder(order);
-              },
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(CupertinoIcons.checkmark_alt, size: 22),
-                  const SizedBox(width: 8),
-                  Text(
-                    isKazakh ? 'Жұмысқа қабылдау' : 'Принять в работу (перчатки)',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          Text(o.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+          const SizedBox(height: 4),
+          Text(o.description, style: const TextStyle(fontSize: 12, color: Color(0xFF475569))),
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: CupertinoButton(
-                    color: CupertinoColors.systemGrey5,
-                    borderRadius: BorderRadius.circular(14),
-                    padding: EdgeInsets.zero,
-                    onPressed: () {
-                      order.status = 'queued';
-                      onUpdateOrder(order);
-                    },
-                    child: Text(
-                      isKazakh ? 'Кезекке қою' : 'В очередь',
-                      style: const TextStyle(color: CupertinoColors.activeBlue, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: SizedBox(
-                  height: 48,
-                  child: CupertinoButton(
-                    color: CupertinoColors.systemRed.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
-                    padding: EdgeInsets.zero,
-                    onPressed: () => _showRejectDialog(context),
-                    child: Text(
-                      isKazakh ? 'Бас тарту' : 'Отклонить',
-                      style: const TextStyle(color: CupertinoColors.systemRed, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ),
-                ),
-              ),
+              const Icon(CupertinoIcons.person_fill, size: 12, color: Color(0xFF64748B)),
+              const SizedBox(width: 4),
+              Text(o.assignedWorkerName, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
             ],
+          ),
+          if (o.aiVerdict != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: o.aiVerdict == 'approved' ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: o.aiVerdict == 'approved' ? const Color(0xFFBBF7D0) : const Color(0xFFFDE68A)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(CupertinoIcons.sparkles, size: 14, color: o.aiVerdict == 'approved' ? const Color(0xFF16A34A) : const Color(0xFFD97706)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'ИИ (${o.aiScore}/100): ${o.aiNotes ?? ""}',
+                      style: TextStyle(fontSize: 11, color: o.aiVerdict == 'approved' ? const Color(0xFF14532D) : const Color(0xFF78350F), fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          if (isWorker) _buildWorkerActions(context),
+          if (!isWorker) _buildMasterActions(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWorkerActions(BuildContext context) {
+    final o = widget.order;
+
+    if (o.status == 'issued') {
+      return Row(
+        children: [
+          Expanded(
+            child: CupertinoButton(
+              color: const Color(0xFF2563EB),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              borderRadius: BorderRadius.circular(10),
+              onPressed: () {
+                o.status = 'accepted';
+                widget.onUpdate(o);
+              },
+              child: const Text('Принять', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: CupertinoButton(
+              color: const Color(0xFFF59E0B),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              borderRadius: BorderRadius.circular(10),
+              onPressed: () {
+                o.status = 'queued';
+                widget.onUpdate(o);
+              },
+              child: const Text('В очередь', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            ),
           ),
         ],
       );
     }
 
-    if (order.status == 'accepted' || order.status == 'queued') {
+    if (o.status == 'accepted' || o.status == 'queued') {
       return SizedBox(
         width: double.infinity,
-        height: 56,
         child: CupertinoButton(
-          color: CupertinoColors.activeBlue,
-          borderRadius: BorderRadius.circular(16),
-          padding: EdgeInsets.zero,
+          color: const Color(0xFF16A34A),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          borderRadius: BorderRadius.circular(10),
           onPressed: () {
-            order.status = 'in_progress';
-            onUpdateOrder(order);
+            o.status = 'in_progress';
+            widget.onUpdate(o);
           },
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(CupertinoIcons.play_arrow_solid, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                isKazakh ? 'Орындауды бастау' : 'Начать исполнение',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-              ),
-            ],
+          child: const Text('Начать исполнение', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+        ),
+      );
+    }
+
+    if (o.status == 'in_progress') {
+      return SizedBox(
+        width: double.infinity,
+        child: CupertinoButton(
+          color: const Color(0xFF2563EB),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          borderRadius: BorderRadius.circular(10),
+          onPressed: _isEvaluating ? null : () => _showCompleteDialog(context),
+          child: Text(
+            _isEvaluating ? 'Проверка ИИ...' : 'Завершить (фото ПОСЛЕ)',
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
           ),
         ),
       );
     }
 
-    if (order.status == 'in_progress') {
-      return Column(
-        children: [
-          SizedBox(
-            width: double.infinity,
-            height: 60, 
-            child: CupertinoButton(
-              color: CupertinoColors.activeGreen,
-              borderRadius: BorderRadius.circular(16),
-              padding: EdgeInsets.zero,
-              onPressed: () => _showClosingForm(context),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+    return const SizedBox();
+  }
+
+  Widget _buildMasterActions(BuildContext context) {
+    final o = widget.order;
+    if (o.status == 'completed' || o.status == 'rework_needed') {
+      return SizedBox(
+        width: double.infinity,
+        child: CupertinoButton(
+          color: const Color(0xFF16A34A),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          borderRadius: BorderRadius.circular(10),
+          onPressed: () {
+            o.status = 'closed';
+            widget.onUpdate(o);
+          },
+          child: const Text('Утвердить и закрыть наряд', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+        ),
+      );
+    }
+    return const SizedBox();
+  }
+
+  void _showCompleteDialog(BuildContext context) {
+    final o = widget.order;
+    String? photoAfterUrl;
+    final workCtrl = TextEditingController(text: 'Замена уплотнения сальника, протяжка болтовых соединений, проверка герметичности.');
+    bool isExcessMaterials = false;
+    bool withoutPhoto = false;
+
+    showCupertinoModalPopup(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.85,
+          color: CupertinoColors.white,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(CupertinoIcons.check_mark_circled, size: 24),
-                  const SizedBox(width: 8),
-                  Text(
-                    isKazakh ? 'Орындалды - Нарядты жабу' : 'Исполнено - Закрыть наряд',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Закрытие наряда и отчет', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        child: const Icon(CupertinoIcons.xmark_circle_fill, color: Color(0xFF94A3B8)),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        const Text('1. Выполненные работы:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                        const SizedBox(height: 4),
+                        CupertinoTextField(
+                          controller: workCtrl,
+                          maxLines: 2,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFCBD5E1))),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text('2. Фото ПОСЛЕ ремонта (бакет some):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                        const SizedBox(height: 4),
+                        CupertinoButton(
+                          color: const Color(0xFFEFF6FF),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          onPressed: withoutPhoto ? null : () async {
+                            final url = await widget.onUploadPhoto(ImageSource.camera);
+                            setModalState(() => photoAfterUrl = url);
+                          },
+                          child: Text(
+                            photoAfterUrl != null ? 'Фото прикреплено' : 'Сфотографировать узел ПОСЛЕ',
+                            style: const TextStyle(color: Color(0xFF2563EB), fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Без фото (сценарий доработки):', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                            CupertinoSwitch(
+                              value: withoutPhoto,
+                              onChanged: (v) => setModalState(() {
+                                withoutPhoto = v;
+                                if (v) photoAfterUrl = null;
+                              }),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Списать лишние ТМЦ (демо доработки):', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                            CupertinoSwitch(
+                              value: isExcessMaterials,
+                              onChanged: (v) => setModalState(() => isExcessMaterials = v),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  CupertinoButton.filled(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      setState(() => _isEvaluating = true);
+                      Future.delayed(const Duration(seconds: 1), () {
+                        if (withoutPhoto || isExcessMaterials) {
+                          o.status = 'rework_needed';
+                          o.aiVerdict = 'rework_needed';
+                          o.aiScore = 68;
+                          o.aiNotes = 'Требует доработки: отсутствует контрольное фото ПОСЛЕ и списание масла превысило норму в 2.4 раза.';
+                        } else {
+                          o.status = 'completed';
+                          o.aiVerdict = 'approved';
+                          o.aiScore = 96;
+                          o.aiNotes = 'Работы приняты: фото подтвердило отсутствие течи, СИЗ надеты, списание ТМЦ обосновано.';
+                          o.photoAfterUrl = photoAfterUrl ?? 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80';
+                        }
+                        o.performedWork = workCtrl.text;
+                        setState(() => _isEvaluating = false);
+                        widget.onUpdate(o);
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: const Text('Сдать на проверку ИИ', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            height: 46,
-            child: CupertinoButton(
-              color: CupertinoColors.systemYellow.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(14),
-              padding: EdgeInsets.zero,
-              onPressed: () => _showSuspendDialog(context),
-              child: Text(
-                isKazakh ? 'Тоқтата тұру (себеппен)' : 'Приостановить (с причиной)',
-                style: const TextStyle(color: CupertinoColors.systemOrange, fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-            ),
-          ),
-        ],
-      );
+        ),
+      ),
+    );
+  }
+
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'issued':
+        return const Color(0xFF3B82F6);
+      case 'accepted':
+        return const Color(0xFF06B6D4);
+      case 'queued':
+        return const Color(0xFFF59E0B);
+      case 'in_progress':
+        return const Color(0xFF10B981);
+      case 'completed':
+        return const Color(0xFF8B5CF6);
+      case 'rework_needed':
+        return const Color(0xFFEF4444);
+      case 'closed':
+        return const Color(0xFF64748B);
+      default:
+        return const Color(0xFF94A3B8);
     }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: CupertinoColors.systemGrey6,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        'Статус: ${order.status}',
-        style: const TextStyle(fontWeight: FontWeight.bold, color: CupertinoColors.systemGrey, fontSize: 13),
-      ),
-    );
   }
 
-  void _showRejectDialog(BuildContext context) {
-    showCupertinoDialog(
-      context: context,
-      builder: (ctx) => CupertinoAlertDialog(
-        title: Text(isKazakh ? 'Бас тарту себебі' : 'Причина отклонения наряда'),
-        content: Padding(
-          padding: const EdgeInsets.only(top: 8.0),
-          child: Text(isKazakh ? 'Апаттық нарядпен басқа учаскеде бос емеспін' : 'Занят аварийным ремонтом на другом участке'),
-        ),
-        actions: [
-          CupertinoDialogAction(
-            child: Text(isKazakh ? 'Жою' : 'Отмена'),
-            onPressed: () => Navigator.pop(ctx),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () {
-              order.status = 'rejected';
-              onUpdateOrder(order);
-              Navigator.pop(ctx);
-            },
-            child: Text(isKazakh ? 'Растау' : 'Отклонить'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showSuspendDialog(BuildContext context) {
-    showCupertinoDialog(
-      context: context,
-      builder: (ctx) => CupertinoAlertDialog(
-        title: Text(isKazakh ? 'Тоқтата тұру' : 'Приостановка наряда'),
-        content: Padding(
-          padding: const EdgeInsets.only(top: 8.0),
-          child: Text(isKazakh ? 'Қоймадан қосалқы бөлшектерді күту' : 'Ждёт запчасти со склада (подшипник 22320)'),
-        ),
-        actions: [
-          CupertinoDialogAction(
-            child: Text(isKazakh ? 'Жою' : 'Отмена'),
-            onPressed: () => Navigator.pop(ctx),
-          ),
-          CupertinoDialogAction(
-            onPressed: () {
-              order.status = 'suspended';
-              onUpdateOrder(order);
-              Navigator.pop(ctx);
-            },
-            child: Text(isKazakh ? 'Растау' : 'Приостановить'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showClosingForm(BuildContext context) {
-    showCupertinoModalPopup(
-      context: context,
-      builder: (ctx) => Container(
-        height: MediaQuery.of(context).size.height * 0.85,
-        padding: const EdgeInsets.all(20),
-        decoration: const BoxDecoration(
-          color: CupertinoColors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  isKazakh ? 'Нарядты жабу нысаны' : 'Форма закрытия наряда',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                CupertinoButton(
-                  padding: EdgeInsets.zero,
-                  child: Text(isKazakh ? 'Жабу' : 'Закрыть'),
-                  onPressed: () => Navigator.pop(ctx),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              isKazakh ? 'Орындалған жұмыстар сипаттамасы:' : 'Выполненные работы:',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-            const SizedBox(height: 4),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: CupertinoColors.systemGrey6,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text(
-                'Заменил подшипниковый узел 22320, смазка Литол-24 набита в объеме 2 кг. Защитный кожух смонтирован.',
-                style: TextStyle(fontSize: 13),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              isKazakh ? 'Ақау шифры:' : 'Шифр неисправности:',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'М-02: Разрушение подшипникового узла привода (Норматив 3.0 ч)',
-              style: const TextStyle(fontSize: 13, color: CupertinoColors.activeBlue),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              isKazakh ? 'Фото «Кейін» (Міндетті):' : 'Фото «После» (Обязательно для ИИ):',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-            ),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                'https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?auto=format&fit=crop&w=600&q=80',
-                height: 120,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: CupertinoButton(
-                color: CupertinoColors.activeGreen,
-                borderRadius: BorderRadius.circular(16),
-                child: Text(
-                  isKazakh ? 'ЖИ тексеруіне тапсыру' : 'Сдать на проверку ИИ (с фото)',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-                onPressed: () {
-                  order.status = 'completed';
-                  order.aiVerdict = 'approved';
-                  order.aiScore = 96;
-                  order.aiNotes = 'Мультимодальный анализ подтверждает устранение поломки. Оценка 5/5.';
-                  onUpdateOrder(order);
-                  Navigator.pop(ctx);
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class OrdersListScreen extends StatelessWidget {
-  final List<WorkOrderModel> orders;
-  final bool isKazakh;
-  final ValueChanged<WorkOrderModel> onUpdateOrder;
-
-  const OrdersListScreen({
-    super.key,
-    required this.orders,
-    required this.isKazakh,
-    required this.onUpdateOrder,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: Text(isKazakh ? 'Барлық нарядтар' : 'Все наряды смены'),
-      ),
-      child: SafeArea(
-        child: ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: orders.length,
-          itemBuilder: (context, index) {
-            return OrderCardWidget(
-              order: orders[index],
-              isKazakh: isKazakh,
-              onUpdateOrder: onUpdateOrder,
-            );
-          },
-        ),
-      ),
-    );
+  String _statusLabel(String status) {
+    switch (status) {
+      case 'issued':
+        return 'Выдан';
+      case 'accepted':
+        return 'Принят';
+      case 'queued':
+        return 'В очереди';
+      case 'in_progress':
+        return 'В работе';
+      case 'completed':
+        return 'Исполнен';
+      case 'rework_needed':
+        return 'Доработка';
+      case 'closed':
+        return 'Закрыт';
+      default:
+        return status;
+    }
   }
 }
 
 class AiAssistantScreen extends StatefulWidget {
-  final bool isKazakh;
-  const AiAssistantScreen({super.key, required this.isKazakh});
+  final String userName;
+  const AiAssistantScreen({super.key, required this.userName});
 
   @override
   State<AiAssistantScreen> createState() => _AiAssistantScreenState();
@@ -727,10 +1329,7 @@ class AiAssistantScreen extends StatefulWidget {
 
 class _AiAssistantScreenState extends State<AiAssistantScreen> {
   final List<Map<String, String>> _messages = [
-    {
-      'role': 'ai',
-      'text': 'Сәлеметсіз бе! «НарядAI» ассистенті кезекшілік бойынша сұрақтарыңызға жауап беруге дайын.'
-    }
+    {'role': 'ai', 'text': 'Здравствуйте! Я интеллектуальный ассистент смены «НарядAI» (gemini-3.1-flash-lite). Подскажу нормативы, шифры дефектов и регламент ремонта.'}
   ];
   final TextEditingController _controller = TextEditingController();
   bool _isLoading = false;
@@ -738,7 +1337,6 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   Future<void> _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _isLoading) return;
-
     setState(() {
       _messages.add({'role': 'user', 'text': text});
       _controller.clear();
@@ -756,31 +1354,15 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       final request = await client.postUrl(url);
       request.headers.set('Content-Type', 'application/json; charset=UTF-8');
 
-      final systemInstruction = widget.isKazakh
-          ? 'Сіз «Қостанай Минералдары» АҚ «НарядAI» жүйесінің кезекші көмекшісісіз (gemini-3.1-flash-lite). Қысқа, нақты, өндірістік стильде қазақ тілінде жауап беріңіз. Эмодзи қолданбаңыз.'
-          : 'Вы - оперативный ИИ-ассистент смены комбината «НарядAI» (АО «Костанайские Минералы»). Модель: gemini-3.1-flash-lite. Отвечайте кратко, профессионально, по существу. Без эмодзи.';
-
-      final contents = <Map<String, dynamic>>[];
-      for (final m in _messages) {
-        if (m['role'] == 'user') {
-          contents.add({
-            'role': 'user',
-            'parts': [{'text': m['text'] ?? ''}]
-          });
-        } else if (m['role'] == 'ai' && m['text'] != null) {
-          contents.add({
-            'role': 'model',
-            'parts': [{'text': m['text'] ?? ''}]
-          });
-        }
-      }
+      final contents = _messages.map((m) => {
+        'role': m['role'] == 'user' ? 'user' : 'model',
+        'parts': [{'text': m['text']}]
+      }).toList();
 
       final body = jsonEncode({
         'contents': contents,
         'systemInstruction': {
-          'parts': [
-            {'text': systemInstruction}
-          ]
+          'parts': [{'text': 'Вы дежурный ИИ-ассистент горно-обогатительного комбината «Костанайские Минералы». Отвечайте строго по делу, на русском языке, в производственном стиле. Не используйте эмодзи.'}]
         }
       });
 
@@ -789,47 +1371,24 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       final responseBody = await response.transform(utf8.decoder).join();
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(responseBody) as Map<String, dynamic>;
-        final candidates = data['candidates'] as List<dynamic>?;
-        if (candidates != null && candidates.isNotEmpty) {
-          final content = candidates[0]['content'] as Map<String, dynamic>?;
-          final parts = content?['parts'] as List<dynamic>?;
-          if (parts != null && parts.isNotEmpty) {
-            final replyText = parts[0]['text'] as String?;
-            if (replyText != null && replyText.trim().isNotEmpty) {
-              if (mounted) {
-                setState(() {
-                  _messages.add({'role': 'ai', 'text': replyText.trim()});
-                  _isLoading = false;
-                });
-              }
-              return;
-            }
-          }
-        }
+        final data = jsonDecode(responseBody);
+        final replyText = data['candidates'][0]['content']['parts'][0]['text'];
+        setState(() => _messages.add({'role': 'ai', 'text': replyText}));
+      } else {
+        setState(() => _messages.add({'role': 'ai', 'text': 'Ошибка ответа ИИ сервера'}));
       }
     } catch (_) {
-      
-    }
-
-    if (mounted) {
-      setState(() {
-        _messages.add({
-          'role': 'ai',
-          'text': widget.isKazakh
-              ? '«Қостанай Минералдары» АҚ бойынша ауысым штаттық режимде жұмыс істеуде. Бос слесарлар: Дуйсенов С. (5 разряд), Ахметов Е. (5 разряд). Авариялық наряд №147 орындалуда.'
-              : 'Смена АО «Костанайские Минералы» работает в штатном режиме. Свободные слесари: Дуйсенов С.Б., Ахметов Е.К. Аварийный наряд №147 находится в исполнении.'
-        });
-        _isLoading = false;
-      });
+      setState(() => _messages.add({'role': 'ai', 'text': 'Проверьте подключение к сети'}));
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: Text(widget.isKazakh ? 'ЖИ Ауысым көмекшісі' : 'ИИ-Ассистент смены (Gemini)'),
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('ИИ-Ассистент смены'),
       ),
       child: SafeArea(
         child: Column(
@@ -837,48 +1396,27 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: _messages.length + (_isLoading ? 1 : 0),
-                itemBuilder: (context, idx) {
-                  if (idx == _messages.length) {
-                    return Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: CupertinoColors.white,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CupertinoActivityIndicator(),
-                            SizedBox(width: 8),
-                            Text('Gemini 3.1 думает...', style: TextStyle(fontSize: 12, color: CupertinoColors.systemGrey)),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-                  final msg = _messages[idx];
+                itemCount: _messages.length,
+                itemBuilder: (context, index) {
+                  final msg = _messages[index];
                   final isUser = msg['role'] == 'user';
                   return Align(
                     alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
                     child: Container(
                       margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.8),
                       decoration: BoxDecoration(
-                        color: isUser ? CupertinoColors.activeBlue : CupertinoColors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 4),
-                        ],
+                        color: isUser ? const Color(0xFF2563EB) : CupertinoColors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: isUser ? null : Border.all(color: const Color(0xFFE2E8F0)),
+                        boxShadow: const [BoxShadow(color: Color(0x06000000), blurRadius: 4)],
                       ),
                       child: Text(
                         msg['text']!,
                         style: TextStyle(
-                          color: isUser ? CupertinoColors.white : CupertinoColors.black,
-                          fontSize: 14,
+                          color: isUser ? CupertinoColors.white : const Color(0xFF0F172A),
+                          fontSize: 13,
                         ),
                       ),
                     ),
@@ -887,26 +1425,40 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: CupertinoColors.white,
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(
+                color: CupertinoColors.white,
+                border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+              ),
               child: Row(
                 children: [
                   Expanded(
                     child: CupertinoTextField(
                       controller: _controller,
-                      placeholder: widget.isKazakh ? 'Сұрақ қойыңыз...' : 'Задайте вопрос ассистенту...',
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      placeholder: 'Задайте вопрос ИИ-ассистенту...',
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: CupertinoColors.systemGrey6,
-                        borderRadius: BorderRadius.circular(12),
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(20),
                       ),
+                      onSubmitted: (_) => _send(),
                     ),
                   ),
                   const SizedBox(width: 8),
                   CupertinoButton(
                     padding: EdgeInsets.zero,
-                    onPressed: _send,
-                    child: const Icon(CupertinoIcons.arrow_up_circle_fill, size: 32),
+                    onPressed: _isLoading ? null : _send,
+                    child: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2563EB),
+                        borderRadius: BorderRadius.circular(19),
+                      ),
+                      child: const Center(
+                        child: Icon(CupertinoIcons.arrow_up, color: CupertinoColors.white, size: 18),
+                      ),
+                    ),
                   ),
                 ],
               ),

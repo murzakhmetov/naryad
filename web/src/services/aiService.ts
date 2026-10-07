@@ -77,7 +77,6 @@ export async function callGeminiApi(
   }
 }
 
-// 1. AI Intelligent Worker Recommendation (Мастер: подбор исполнителя)
 export async function aiRecommendWorker(
   equipmentName: string,
   problemDescription: string,
@@ -87,7 +86,6 @@ export async function aiRecommendWorker(
   const freeWorkers = availableWorkers.filter((w) => w.status === 'free');
   const pool = freeWorkers.length > 0 ? freeWorkers : availableWorkers.filter((w) => w.status !== 'offline');
 
-  // Semantic keyword heuristics
   const isElectric = /электр|кабел|двигател|датчик|кз|фаз/i.test(problemDescription);
   const isHydraulic = /гидравл|давлен|масло|рвд|насос|цилиндр/i.test(problemDescription);
   const isWeld = /сварк|трещин|шов|металлоконстр/i.test(problemDescription);
@@ -108,10 +106,8 @@ export async function aiRecommendWorker(
     };
   }
 
-  // Base factual reason
   let reason = `${candidate.fullName} (${candidate.specialty}, ${candidate.rank} разряд): статус «Свободен», рейтинг надежности ${candidate.rating}%, доля ремонтов в срок ${candidate.onTimeRate}%. Высокая компетенция по агрегатам типа «${equipmentName}».`;
 
-  // Live enhancement with Gemini 3.1 Flash Lite if reachable
   const apiKey = getGeminiApiKey();
   if (apiKey) {
     try {
@@ -127,7 +123,7 @@ export async function aiRecommendWorker(
         reason = liveReason.trim();
       }
     } catch {
-      // Keep heuristic reason
+      
     }
   }
 
@@ -138,7 +134,6 @@ export async function aiRecommendWorker(
   };
 }
 
-// 2. AI Voice / Problem Text Parser (Распознавание дефекта и подбор шифра с нормативом)
 export async function aiParseProblem(text: string): Promise<{
   faultCode: string;
   category: string;
@@ -175,13 +170,11 @@ export async function aiParseProblem(text: string): Promise<{
   };
 }
 
-// 3. AI Work Order Closure Quality Verification (Модуль 6.2 и 6.3)
 export async function aiVerifyOrderClosure(order: Partial<WorkOrder>): Promise<AiEvaluation> {
   const hasPhotos = Boolean(order.photoAfterUrl);
   const performedWork = order.performedWorkDescription || '';
   const materials = order.materialsSpent || [];
 
-  // Case: Demo Scenario Step 7 (Отсутствие фото или превышение норм)
   if (!hasPhotos && order.type === 'emergency') {
     return {
       verdict: 'rework_needed',
@@ -195,7 +188,6 @@ export async function aiVerifyOrderClosure(order: Partial<WorkOrder>): Promise<A
     };
   }
 
-  // Check material logic (abnormal oil or parts)
   const isOilOverconsumption = materials.some((m) => m.materialId === 'mat_3' && m.quantity > 30);
 
   if (isOilOverconsumption) {
@@ -218,7 +210,6 @@ export async function aiVerifyOrderClosure(order: Partial<WorkOrder>): Promise<A
     };
   }
 
-  // Standard high quality closure
   return {
     verdict: 'approved',
     score: 96,
@@ -238,7 +229,6 @@ export async function aiVerifyOrderClosure(order: Partial<WorkOrder>): Promise<A
   };
 }
 
-// 4. AI Historical Anomalies Discovery Engine (Модуль 6.5)
 export interface AnomalyReport {
   id: string;
   severity: 'critical' | 'high' | 'medium';
@@ -322,7 +312,6 @@ export function detectHistoricalAnomalies(_orders: WorkOrder[]): AnomalyReport[]
   ];
 }
 
-// 5. AI Shift Master Assistant (Диалоговый ассистент смены: Gemini 3.1 Flash Lite)
 export async function aiAssistantChat(
   prompt: string,
   lang: 'ru' | 'kz' = 'ru',
@@ -352,10 +341,8 @@ export async function aiAssistantChat(
     }
   }
 
-  // Fallback to deterministic logic if offline or rate limited
   const p = prompt.toLowerCase();
 
-  // Kazakh responses
   if (lang === 'kz') {
     if (p.includes('бос') || p.includes('электрик') || p.includes('кім')) {
       const freeElectricians = workers.filter((w) => w.specialty.includes('Электро') && w.status === 'free');

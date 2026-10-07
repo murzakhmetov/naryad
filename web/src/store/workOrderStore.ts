@@ -2,17 +2,20 @@ import type {
   WorkOrder,
   Employee,
   OrderStatus,
-  OrderEvent,
   MaterialSpent,
   AiEvaluation,
 } from '../data/mockData';
 import {
   EQUIPMENT_LIST,
   EMPLOYEES,
+  WORKSHOPS,
+  BRIGADES,
+  FAULT_CODES,
+  MATERIALS_CATALOG,
 } from '../data/mockData';
 import { generateHistoricalOrders } from '../data/historicalGenerator';
 import { aiVerifyOrderClosure } from '../services/aiService';
-import { firebaseSync } from '../services/firebaseSync';
+import { supabaseSync } from '../services/supabaseSync';
 
 export interface PushNotification {
   id: string;
@@ -33,86 +36,6 @@ export interface ToastAlert {
   type: 'emergency' | 'warning' | 'info' | 'success';
 }
 
-const INITIAL_ACTIVE_ORDERS: WorkOrder[] = [
-  {
-    id: 'ord_active_1',
-    number: '№147',
-    type: 'emergency',
-    title: 'Аварийный перегрев подшипника привода КМД-1750',
-    description: 'Дробилка КМД-1750, участок дробления. Температура опорного подшипника превысила +85°C. Риск заклинивания.',
-    workshopId: 'ws_crushing',
-    equipmentId: 'eq_kmd_1750',
-    equipmentName: 'Дробилка конусная КМД-1750Т',
-    assignedWorkerId: 'emp_2',
-    assignedWorkerName: 'Дуйсенов Серик Болатович',
-    issuedByMasterId: 'master_1',
-    issuedByMasterName: 'Сатпаев Ерлан Касымович',
-    priority: 'emergency',
-    createdAt: new Date(Date.now() - 55 * 60 * 1000).toISOString(),
-    deadlineAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-    acceptedAt: new Date(Date.now() - 50 * 60 * 1000).toISOString(),
-    startedAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-    status: 'in_progress',
-    statusHistory: [
-      {
-        id: 'ev_act_1',
-        orderId: 'ord_active_1',
-        timestamp: new Date(Date.now() - 55 * 60 * 1000).toISOString(),
-        actorId: 'master_1',
-        actorName: 'Сатпаев Е.К.',
-        action: 'Выдан',
-      },
-      {
-        id: 'ev_act_2',
-        orderId: 'ord_active_1',
-        timestamp: new Date(Date.now() - 50 * 60 * 1000).toISOString(),
-        actorId: 'emp_2',
-        actorName: 'Дуйсенов С.Б.',
-        action: 'Принят в работу',
-      },
-      {
-        id: 'ev_act_3',
-        orderId: 'ord_active_1',
-        timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-        actorId: 'emp_2',
-        actorName: 'Дуйсенов С.Б.',
-        action: 'В работе',
-        comment: 'Ждем подшипник со склада',
-      },
-    ],
-    photoBeforeUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80',
-    faultCode: 'М-02',
-    materialsSpent: [],
-    isOverdue: true,
-    overdueMinutes: 10,
-    workerComment: 'Ждем подшипник со склада',
-  },
-  {
-    id: 'ord_active_2',
-    number: '№148',
-    type: 'urgent',
-    title: 'Ревизия силового кабеля и пускателя насоса 1ГрТ',
-    description: 'Участок обогащения, насос шламовый 1ГрТ. Запах гари в районе клеммной коробки электродвигателя 110 кВт.',
-    workshopId: 'ws_beneficiation',
-    equipmentId: 'eq_pump_1grt',
-    equipmentName: 'Насос шламовый 1ГрТ 400/40',
-    assignedWorkerId: 'emp_7',
-    assignedWorkerName: 'Васильев Олег Петрович',
-    issuedByMasterId: 'master_1',
-    issuedByMasterName: 'Сатпаев Ерлан Касымович',
-    priority: 'high',
-    createdAt: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    deadlineAt: new Date(Date.now() + 65 * 60 * 1000).toISOString(),
-    acceptedAt: new Date(Date.now() - 20 * 60 * 1000).toISOString(),
-    startedAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    status: 'in_progress',
-    statusHistory: [],
-    photoBeforeUrl: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80',
-    faultCode: 'Э-02',
-    materialsSpent: [],
-  },
-];
-
 class WorkOrderStore {
   private activeOrders: WorkOrder[] = [];
   private historicalOrders: WorkOrder[] = [];
@@ -120,127 +43,67 @@ class WorkOrderStore {
   private notifications: PushNotification[] = [];
   private toasts: ToastAlert[] = [];
   private listeners: (() => void)[] = [];
-  private syncChannel: BroadcastChannel | null = null;
+  private supabaseInitialized = false;
+  private unsubOrders: (() => void) | null = null;
+  private unsubEmployees: (() => void) | null = null;
+  private unsubNotifs: (() => void) | null = null;
 
   constructor() {
-    this.init();
-    this.initSync();
-  }
-
-  private init() {
-
-    const savedActive = localStorage.getItem('NARYAD_ACTIVE_ORDERS');
-    const savedEmployees = localStorage.getItem('NARYAD_EMPLOYEES');
-    const savedNotifs = localStorage.getItem('NARYAD_NOTIFICATIONS');
-
-    if (savedActive) {
-      try {
-        this.activeOrders = JSON.parse(savedActive);
-      } catch {
-        this.activeOrders = INITIAL_ACTIVE_ORDERS;
-      }
-    } else {
-      this.activeOrders = INITIAL_ACTIVE_ORDERS;
-    }
-
-    if (savedEmployees) {
-      try {
-        this.employees = JSON.parse(savedEmployees);
-      } catch {
-        this.employees = EMPLOYEES;
-      }
-    } else {
-      this.employees = EMPLOYEES;
-    }
-
-    if (savedNotifs) {
-      try {
-        this.notifications = JSON.parse(savedNotifs);
-      } catch {
-        this.notifications = [];
-      }
-    }
-
+    this.employees = [...EMPLOYEES];
     this.historicalOrders = generateHistoricalOrders();
-
     setInterval(() => this.checkDeadlines(), 5000);
   }
 
-  private initSync() {
-    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-      try {
-        this.syncChannel = new BroadcastChannel('naryad_ai_sync_channel');
-        this.syncChannel.onmessage = (event) => {
-          if (event.data?.type === 'SYNC_STATE') {
-            this.reloadFromStorage();
-          }
-        };
-      } catch {
+  public async initSupabase() {
+    if (this.supabaseInitialized) return;
+    this.supabaseInitialized = true;
 
-      }
+    await supabaseSync.seedReferenceData(
+      WORKSHOPS,
+      EQUIPMENT_LIST,
+      BRIGADES,
+      EMPLOYEES,
+      FAULT_CODES,
+      MATERIALS_CATALOG
+    );
+
+    const dbEmployees = await supabaseSync.fetchEmployees();
+    if (dbEmployees.length > 0) {
+      this.employees = dbEmployees;
     }
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('storage', (e) => {
-        if (e.key?.startsWith('NARYAD_')) {
-          this.reloadFromStorage();
-        }
-      });
-    }
-
-    try {
-      firebaseSync.subscribeToWorkOrders((incomingOrders) => {
-        if (incomingOrders && incomingOrders.length > 0) {
-          const map = new Map<string, WorkOrder>();
-          this.activeOrders.forEach((o) => map.set(o.id, o));
-          incomingOrders.forEach((o) => map.set(o.id, o));
-          this.activeOrders = Array.from(map.values());
-          localStorage.setItem('NARYAD_ACTIVE_ORDERS', JSON.stringify(this.activeOrders));
-          this.notify();
-        }
-      });
-    } catch {
-
-    }
-  }
-
-  private reloadFromStorage() {
-    try {
-      const savedActive = localStorage.getItem('NARYAD_ACTIVE_ORDERS');
-      const savedEmployees = localStorage.getItem('NARYAD_EMPLOYEES');
-      const savedNotifs = localStorage.getItem('NARYAD_NOTIFICATIONS');
-
-      if (savedActive) this.activeOrders = JSON.parse(savedActive);
-      if (savedEmployees) this.employees = JSON.parse(savedEmployees);
-      if (savedNotifs) this.notifications = JSON.parse(savedNotifs);
-      this.notify();
-    } catch {
-
-    }
-  }
-
-  private persist() {
-    localStorage.setItem('NARYAD_ACTIVE_ORDERS', JSON.stringify(this.activeOrders));
-    localStorage.setItem('NARYAD_EMPLOYEES', JSON.stringify(this.employees));
-    localStorage.setItem('NARYAD_NOTIFICATIONS', JSON.stringify(this.notifications));
-
-    if (this.syncChannel) {
-      try {
-        this.syncChannel.postMessage({ type: 'SYNC_STATE', timestamp: Date.now() });
-      } catch {
-
-      }
-    }
-
-    try {
-      this.activeOrders.forEach((order) => {
-        firebaseSync.syncWorkOrder(order).catch(() => {});
-      });
-    } catch {
-
+    const dbOrders = await supabaseSync.fetchActiveOrders();
+    if (dbOrders.length > 0) {
+      this.activeOrders = dbOrders;
     }
 
     this.notify();
+
+    this.unsubOrders = supabaseSync.subscribeToOrders((orders) => {
+      this.activeOrders = orders;
+      this.notify();
+    });
+
+    this.unsubEmployees = supabaseSync.subscribeToEmployees((emps) => {
+      this.employees = emps;
+      this.notify();
+    });
+
+    this.unsubNotifs = supabaseSync.subscribeToNotifications(undefined, (n) => {
+      this.addNotification({
+        orderId: '',
+        orderNumber: '',
+        type: n.type as PushNotification['type'],
+        title: n.title,
+        message: n.message,
+      });
+    });
+  }
+
+  public dispose() {
+    if (this.unsubOrders) this.unsubOrders();
+    if (this.unsubEmployees) this.unsubEmployees();
+    if (this.unsubNotifs) this.unsubNotifs();
   }
 
   private notify() {
@@ -299,10 +162,9 @@ class WorkOrderStore {
 
   public markNotificationRead(id: string) {
     this.notifications = this.notifications.map((n) => (n.id === id ? { ...n, isRead: true } : n));
-    this.persist();
+    this.notify();
   }
 
-  // Request real Browser Push Permission
   public async requestPushPermission(): Promise<boolean> {
     if (typeof window === 'undefined' || !('Notification' in window)) return false;
     try {
@@ -313,7 +175,6 @@ class WorkOrderStore {
     }
   }
 
-  // Create work order in <1 min, <=6 clicks
   public createOrder(data: {
     workshopId: string;
     equipmentId: string;
@@ -329,7 +190,7 @@ class WorkOrderStore {
     const worker = this.employees.find((e) => e.id === data.assignedWorkerId);
     const master = this.employees.find((e) => e.role === 'master');
 
-    const orderNumber = `№${150 + this.activeOrders.length}`;
+    const orderNumber = `No${150 + this.activeOrders.length}`;
     const now = new Date();
     const deadline = new Date(now.getTime() + data.durationHours * 3600 * 1000);
 
@@ -366,12 +227,10 @@ class WorkOrderStore {
 
     this.activeOrders.unshift(newOrder);
 
-    // Update worker status: if previously free -> mark as queued or busy
     if (worker) {
       this.updateWorkerStatus(worker.id, worker.status === 'free' ? 'busy' : 'queued', newOrder.id);
     }
 
-    // Trigger push notification & browser notification
     this.addNotification({
       orderId: newOrder.id,
       orderNumber: newOrder.number,
@@ -380,11 +239,20 @@ class WorkOrderStore {
       message: `${newOrder.number}: ${newOrder.title}. Исполнитель: ${newOrder.assignedWorkerName}.`,
     });
 
-    this.persist();
+    supabaseSync.upsertOrder(newOrder);
+    supabaseSync.insertNotification({
+      employeeId: newOrder.assignedWorkerId,
+      orderId: newOrder.id,
+      orderNumber: newOrder.number,
+      type: data.priority === 'emergency' ? 'emergency' : 'info',
+      title: data.priority === 'emergency' ? 'Срочный аварийный наряд!' : 'Новый наряд смены',
+      message: `${newOrder.number}: ${newOrder.title}`,
+    });
+
+    this.notify();
     return newOrder;
   }
 
-  // Update order status with 10-status cycle
   public updateOrderStatus(
     orderId: string,
     newStatus: OrderStatus,
@@ -410,7 +278,6 @@ class WorkOrderStore {
       this.updateWorkerStatus(order.assignedWorkerId, 'free');
     } else if (newStatus === 'completed') {
       order.completedAt = now;
-      order.status = 'completed';
     } else if (newStatus === 'closed') {
       order.closedAt = now;
       this.updateWorkerStatus(order.assignedWorkerId, 'free');
@@ -427,10 +294,10 @@ class WorkOrderStore {
       reason,
     });
 
-    this.persist();
+    supabaseSync.upsertOrder(order);
+    this.notify();
   }
 
-  // Reassign order (Section 5.1 & 6.1 requirement)
   public reassignOrder(orderId: string, newWorkerId: string, reason: string) {
     const order = this.activeOrders.find((o) => o.id === orderId);
     const newWorker = this.employees.find((e) => e.id === newWorkerId);
@@ -440,7 +307,6 @@ class WorkOrderStore {
     order.assignedWorkerId = newWorker.id;
     order.assignedWorkerName = newWorker.fullName;
 
-    // Free old worker if they have no other busy orders
     this.updateWorkerStatus(oldWorkerId, 'free');
     this.updateWorkerStatus(newWorker.id, 'busy', order.id);
 
@@ -462,10 +328,19 @@ class WorkOrderStore {
       message: `Новый исполнитель: ${newWorker.fullName}. Причина: ${reason}`,
     });
 
-    this.persist();
+    supabaseSync.upsertOrder(order);
+    supabaseSync.insertNotification({
+      employeeId: newWorker.id,
+      orderId: order.id,
+      orderNumber: order.number,
+      type: 'warning',
+      title: `Наряд ${order.number} переназначен`,
+      message: `Новый исполнитель: ${newWorker.fullName}`,
+    });
+
+    this.notify();
   }
 
-  // Change priority (Section 5.1 requirement)
   public changePriority(orderId: string, newPriority: 'emergency' | 'high' | 'normal' | 'planned') {
     const order = this.activeOrders.find((o) => o.id === orderId);
     if (!order) return;
@@ -483,10 +358,10 @@ class WorkOrderStore {
       comment: `Приоритет изменен с ${oldPriority} на ${newPriority}`,
     });
 
-    this.persist();
+    supabaseSync.upsertOrder(order);
+    this.notify();
   }
 
-  // Cancel order (Section 5.1 requirement)
   public cancelOrder(orderId: string, reason: string) {
     const order = this.activeOrders.find((o) => o.id === orderId);
     if (!order) return;
@@ -512,10 +387,10 @@ class WorkOrderStore {
       message: `Причина: ${reason}`,
     });
 
-    this.persist();
+    supabaseSync.upsertOrder(order);
+    this.notify();
   }
 
-  // Complete work order with full report
   public async submitOrderCompletion(
     orderId: string,
     data: {
@@ -536,12 +411,11 @@ class WorkOrderStore {
     order.workerComment = data.workerComment;
     order.completedAt = new Date().toISOString();
 
-    // Trigger AI evaluation immediately
     const evaluation = await aiVerifyOrderClosure(order);
     order.aiEvaluation = evaluation;
 
     if (evaluation.verdict === 'rework_needed') {
-      this.updateOrderStatus(orderId, 'rework_needed', 'ИИ-Контролёр', evaluation.explanation);
+      this.updateOrderStatus(orderId, 'rework_needed', 'ИИ-Контролер', evaluation.explanation);
       this.addNotification({
         orderId: order.id,
         orderNumber: order.number,
@@ -560,11 +434,20 @@ class WorkOrderStore {
       });
     }
 
-    this.persist();
+    supabaseSync.upsertOrder(order);
+    supabaseSync.insertNotification({
+      employeeId: order.issuedByMasterId,
+      orderId: order.id,
+      orderNumber: order.number,
+      type: evaluation.verdict === 'rework_needed' ? 'warning' : 'success',
+      title: evaluation.verdict === 'rework_needed' ? `Наряд ${order.number} - доработка` : `Наряд ${order.number} исполнен`,
+      message: `ИИ оценка: ${evaluation.score}/100`,
+    });
+
+    this.notify();
     return evaluation;
   }
 
-  // Master approves or overrides closing
   public masterCloseOrder(orderId: string, masterNotes?: string, overrideScore?: number) {
     const order = this.activeOrders.find((o) => o.id === orderId);
     if (!order) return;
@@ -575,6 +458,7 @@ class WorkOrderStore {
     }
 
     this.updateOrderStatus(orderId, 'closed', 'Мастер смены', masterNotes || 'Наряд закрыт и сдан в архив.');
+    supabaseSync.upsertOrder(order);
   }
 
   private updateWorkerStatus(
@@ -584,12 +468,14 @@ class WorkOrderStore {
   ) {
     this.employees = this.employees.map((e) => {
       if (e.id === workerId) {
-        return {
+        const updated = {
           ...e,
           status,
           currentOrderId: status === 'free' ? undefined : currentOrderId || e.currentOrderId,
           queuedOrdersCount: status === 'queued' ? e.queuedOrdersCount + 1 : e.queuedOrdersCount,
         };
+        supabaseSync.upsertEmployee(updated);
+        return updated;
       }
       return e;
     });
@@ -604,7 +490,6 @@ class WorkOrderStore {
     };
     this.notifications.unshift(notif);
 
-    // Push real browser notification if permitted
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       try {
         new Notification(data.title, {
@@ -612,11 +497,9 @@ class WorkOrderStore {
           icon: '/favicon.svg',
         });
       } catch {
-        // ignore
       }
     }
 
-    // In-app interactive Toast Alert
     const toast: ToastAlert = {
       id: `toast_${Date.now()}`,
       title: data.title,
@@ -628,7 +511,6 @@ class WorkOrderStore {
       this.dismissToast(toast.id);
     }, 6000);
 
-    // Play synthetic audio chime via Web Audio API
     this.playAudioAlert(data.type);
   }
 
@@ -652,7 +534,6 @@ class WorkOrderStore {
       osc.start();
       osc.stop(audioCtx.currentTime + 0.4);
     } catch {
-      // Audio autoplay policy fallback
     }
   }
 
@@ -675,11 +556,21 @@ class WorkOrderStore {
             title: `Просрочен наряд ${o.number}!`,
             message: `${o.number} просрочен на ${o.overdueMinutes} мин. Оборудование: ${o.equipmentName}. Исполнитель: ${o.assignedWorkerName}.`,
           });
+
+          supabaseSync.upsertOrder(o);
+          supabaseSync.insertNotification({
+            employeeId: o.assignedWorkerId,
+            orderId: o.id,
+            orderNumber: o.number,
+            type: 'emergency',
+            title: `Просрочен наряд ${o.number}!`,
+            message: `Просрочен на ${o.overdueMinutes} мин.`,
+          });
         }
       }
     });
 
-    if (changed) this.persist();
+    if (changed) this.notify();
   }
 
   public getStatusLabel(status: OrderStatus): string {
@@ -687,7 +578,7 @@ class WorkOrderStore {
       issued: 'Выдан',
       accepted: 'Принят в работу',
       queued: 'В очереди',
-      rejected: 'Отклонён',
+      rejected: 'Отклонен',
       in_progress: 'В работе',
       suspended: 'Приостановлен',
       completed: 'Исполнено',
@@ -698,16 +589,12 @@ class WorkOrderStore {
     return map[status] || status;
   }
 
-  // Reset demo state
   public resetToDemoInitial() {
-    localStorage.removeItem('NARYAD_ACTIVE_ORDERS');
-    localStorage.removeItem('NARYAD_EMPLOYEES');
-    localStorage.removeItem('NARYAD_NOTIFICATIONS');
-    this.activeOrders = JSON.parse(JSON.stringify(INITIAL_ACTIVE_ORDERS));
-    this.employees = JSON.parse(JSON.stringify(EMPLOYEES));
+    this.activeOrders = [];
+    this.employees = [...EMPLOYEES];
     this.notifications = [];
     this.toasts = [];
-    this.persist();
+    this.notify();
   }
 }
 

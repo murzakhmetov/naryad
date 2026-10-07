@@ -3,18 +3,16 @@ import {
   Shield,
   LayoutDashboard,
   BarChart3,
-  PlayCircle,
   Home,
   Globe,
   Bell,
-  Sparkles,
   Key,
   X,
   Check,
   Menu,
-  ChevronRight,
   Radio,
-  Zap,
+  LogOut,
+  User,
 } from 'lucide-react';
 import type { Language } from '../utils/i18n';
 import { I18N } from '../utils/i18n';
@@ -23,11 +21,14 @@ import { workOrderStore } from '../store/workOrderStore';
 import { getGeminiApiKey, setGeminiApiKey, getGeminiModel } from '../services/aiService';
 
 interface HeaderNavProps {
-  currentView: 'landing' | 'dashboard' | 'analytics' | 'demo';
-  onSelectView: (view: 'landing' | 'dashboard' | 'analytics' | 'demo') => void;
+  currentView: 'landing' | 'dashboard' | 'analytics';
+  onSelectView: (view: 'landing' | 'dashboard' | 'analytics') => void;
   lang: Language;
   onToggleLang: () => void;
   notifications: PushNotification[];
+  userRole?: 'master' | 'worker';
+  userEmail?: string;
+  onLogout?: () => void;
 }
 
 export const HeaderNav: React.FC<HeaderNavProps> = ({
@@ -36,6 +37,9 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   lang,
   onToggleLang,
   notifications,
+  userRole,
+  userEmail,
+  onLogout,
 }) => {
   const [showNotifs, setShowNotifs] = useState(false);
   const [showKeyModal, setShowKeyModal] = useState(false);
@@ -66,7 +70,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   };
 
   const navItems: {
-    id: 'landing' | 'dashboard' | 'analytics' | 'demo';
+    id: 'landing' | 'dashboard' | 'analytics';
     label: string;
     icon: React.ComponentType<{ className?: string }>;
     desc: string;
@@ -88,12 +92,6 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
       label: t.navAnalytics,
       icon: BarChart3,
       desc: 'Поиск аномалий за 90 дней',
-    },
-    {
-      id: 'demo',
-      label: t.navDemo,
-      icon: PlayCircle,
-      desc: 'Пошаговый сценарий защиты',
     },
   ];
 
@@ -121,7 +119,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
               </span>
             </div>
             <p className="text-[11px] text-slate-400 leading-none hidden md:block mt-0.5">
-              Горно-обогатительный комбинат • Кейс 1
+              Горно-обогатительный комбинат - Кейс 1
             </p>
           </div>
         </div>
@@ -136,23 +134,30 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
                 onClick={() => onSelectView(item.id)}
                 className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all relative ${
                   isActive
-                    ? item.id === 'demo'
-                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30 font-bold'
-                      : 'bg-blue-600 text-white shadow-md shadow-blue-600/30 font-bold'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 font-bold'
                     : 'text-slate-400 hover:text-white hover:bg-white/[0.06]'
                 }`}
               >
                 <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                 <span>{item.label}</span>
-                {item.id === 'demo' && !isActive && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
-                )}
               </button>
             );
           })}
         </nav>
 
         <div className="flex items-center space-x-2 shrink-0">
+
+          {userRole && (
+            <div className="hidden xl:flex items-center space-x-2 px-2.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08]">
+              <User className="w-3.5 h-3.5 text-blue-400" />
+              <span className="text-[11px] text-slate-300">
+                {userRole === 'master' ? 'Мастер' : 'Исполнитель'}
+              </span>
+              {userEmail && (
+                <span className="text-[10px] text-slate-500 max-w-[120px] truncate">{userEmail}</span>
+              )}
+            </div>
+          )}
 
           <button
             onClick={handleEnablePush}
@@ -248,6 +253,16 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             )}
           </div>
 
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="p-2 rounded-xl bg-white/[0.04] hover:bg-red-500/20 border border-white/[0.08] text-slate-400 hover:text-red-400 transition-colors"
+              title="Выйти из системы"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
+
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="lg:hidden p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 transition-colors"
@@ -273,19 +288,13 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
                   }}
                   className={`p-3 rounded-2xl border text-left flex items-start space-x-3 transition-all ${
                     isActive
-                      ? item.id === 'demo'
-                        ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300'
-                        : 'bg-blue-600/20 border-blue-500/40 text-blue-300'
+                      ? 'bg-blue-600/20 border-blue-500/40 text-blue-300'
                       : 'bg-white/[0.03] border-white/[0.06] text-slate-300 hover:bg-white/[0.06]'
                   }`}
                 >
                   <div
                     className={`p-2 rounded-xl ${
-                      isActive
-                        ? item.id === 'demo'
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-blue-600 text-white'
-                        : 'bg-white/5 text-slate-400'
+                      isActive ? 'bg-blue-600 text-white' : 'bg-white/5 text-slate-400'
                     }`}
                   >
                     <Icon className="w-4 h-4" />
@@ -298,6 +307,21 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
               );
             })}
           </div>
+
+          {userRole && (
+            <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-white/[0.06]">
+              <div className="flex items-center space-x-2">
+                <User className="w-3.5 h-3.5 text-blue-400" />
+                <span>{userRole === 'master' ? 'Мастер' : 'Исполнитель'}</span>
+                {userEmail && <span className="text-slate-500 text-[10px]">({userEmail})</span>}
+              </div>
+              {onLogout && (
+                <button onClick={onLogout} className="text-red-400 hover:underline text-[11px]">
+                  Выйти
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="pt-2 flex items-center justify-between text-xs text-slate-400 border-t border-white/[0.06]">
             <div className="flex items-center space-x-2">

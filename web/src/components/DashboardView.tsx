@@ -56,8 +56,9 @@ import {
 import jsPDF from 'jspdf';
 import * as XLSX from 'xlsx';
 import type { WorkOrder, Employee, OrderStatus } from '../data/mockData';
-import { WORKSHOPS, EQUIPMENT_LIST } from '../data/mockData';
+import { WORKSHOPS, EQUIPMENT_LIST, FAULT_CODES, MATERIALS_CATALOG } from '../data/mockData';
 import { workOrderStore } from '../store/workOrderStore';
+import { uploadPhoto } from '../services/supabaseClient';
 import {
   aiRecommendWorker,
   getGeminiApiKey,
@@ -76,12 +77,14 @@ interface DashboardViewProps {
   orders: WorkOrder[];
   employees: Employee[];
   lang: Language;
+  userRole?: 'master' | 'worker';
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   orders,
   employees,
   lang,
+  userRole = 'master',
 }) => {
   const t = I18N[lang];
 
@@ -154,7 +157,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     workOrderStore.showToast('Смена обновлена', `Загружен сменный журнал: ${dateStr}`, 'info');
   };
 
-  // Activity stream state
   const [activityMessage, setActivityMessage] = useState('');
   const [activityFeed, setActivityFeed] = useState([
     {
@@ -182,7 +184,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     },
   ]);
 
-  // Create Order State (<=6 clicks guarantee)
   const [formWorkshop, setFormWorkshop] = useState(WORKSHOPS[0].id);
   const [formEquipment, setFormEquipment] = useState(
     EQUIPMENT_LIST.filter((e) => e.workshopId === WORKSHOPS[0].id)[0]?.id || ''
@@ -192,8 +193,43 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [formPriority, setFormPriority] = useState<'emergency' | 'high' | 'normal'>('emergency');
   const [formWorker, setFormWorker] = useState(employees.find((e) => e.role === 'worker')?.id || '');
   const [aiSuggestion, setAiSuggestion] = useState<{ workerId: string; reason: string } | null>(null);
+  const [formPhotoBeforeUrl, setFormPhotoBeforeUrl] = useState('');
+  const [formPhotoUploading, setFormPhotoUploading] = useState(false);
 
-  // Settings state
+  const [closingWorkDesc, setClosingWorkDesc] = useState('Замена уплотнения, опрессовка гидролинии, устранение течи масла');
+  const [closingFaultCode, setClosingFaultCode] = useState('Г-03');
+  const [closingPhotoAfterUrl, setClosingPhotoAfterUrl] = useState('');
+  const [closingPhotoUploading, setClosingPhotoUploading] = useState(false);
+  const [closingMaterialsCount, setClosingMaterialsCount] = useState<number>(1);
+  const [closingMaterialId, setClosingMaterialId] = useState('mat_10');
+  const [closingAiEvaluating, setClosingAiEvaluating] = useState(false);
+
+  const handleUploadBeforePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFormPhotoUploading(true);
+    try {
+      const url = await uploadPhoto(file, 'orders_before');
+      if (url) setFormPhotoBeforeUrl(url);
+    } catch {
+    } finally {
+      setFormPhotoUploading(false);
+    }
+  };
+
+  const handleUploadAfterPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setClosingPhotoUploading(true);
+    try {
+      const url = await uploadPhoto(file, 'orders_after');
+      if (url) setClosingPhotoAfterUrl(url);
+    } catch {
+    } finally {
+      setClosingPhotoUploading(false);
+    }
+  };
+
   const [settingsShift, setSettingsShift] = useState<'A' | 'B'>('A');
   const [settingsApiKey, setSettingsApiKey] = useState(getGeminiApiKey());
   const [settingsApiKeySaved, setSettingsApiKeySaved] = useState(false);
@@ -214,11 +250,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   };
 
-  // Filtered orders
   const activeOrders = useMemo(() => orders.filter((o) => o.status !== 'closed'), [orders]);
   const completedOrders = useMemo(() => orders.filter((o) => o.status === 'completed' || o.status === 'closed'), [orders]);
 
-  // Performance Dual smooth curve chart (dynamic by chartRange)
   const chartData = useMemo(() => {
     switch (chartRange) {
       case 'week2':
@@ -386,7 +420,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       },
     ]);
 
-    // Live AI answer if message addresses AI or asks question
     if (
       msg.toLowerCase().includes('ии') ||
       msg.toLowerCase().includes('кто') ||
@@ -432,15 +465,47 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       title: formTitle || 'Внеплановый аварийный ремонт',
       description: formDesc || 'Устранение неисправности по наряду.',
       durationHours: 2,
-      photoBeforeUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80',
+      photoBeforeUrl: formPhotoBeforeUrl || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80',
     });
 
     setShowCreateModal(false);
     setFormTitle('');
     setFormDesc('');
+    setFormPhotoBeforeUrl('');
   };
 
-  // Generate and download real PDF inspection protocol
+  const handleCompleteOrder = async () => {
+    if (!selectedOrderForDetail) return;
+    setClosingAiEvaluating(true);
+    try {
+      const mat = MATERIALS_CATALOG.find((m) => m.id === closingMaterialId);
+      const spentList = mat
+        ? [{ materialId: mat.id, materialName: mat.name, quantity: closingMaterialsCount, unit: mat.unit }]
+        : [];
+
+      const evalResult = await workOrderStore.submitOrderCompletion(selectedOrderForDetail.id, {
+        performedWorkDescription: closingWorkDesc || 'Устранение дефекта, регулировка и проверка оборудования.',
+        faultCode: closingFaultCode,
+        materialsSpent: spentList,
+        photoAfterUrl: closingPhotoAfterUrl || undefined,
+        workerComment: 'Работы выполнены согласно техрегламенту.',
+      });
+
+      setSelectedOrderForDetail({
+        ...selectedOrderForDetail,
+        status: evalResult.verdict === 'rework_needed' ? 'rework_needed' : 'completed',
+        aiEvaluation: evalResult,
+        photoAfterUrl: closingPhotoAfterUrl,
+        faultCode: closingFaultCode,
+        materialsSpent: spentList,
+        performedWorkDescription: closingWorkDesc,
+      });
+    } catch {
+    } finally {
+      setClosingAiEvaluating(false);
+    }
+  };
+
   const handleDownloadVibroPdf = () => {
     const doc = new jsPDF();
     doc.setFontSize(16);
@@ -476,7 +541,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     doc.save('Акт_вибродиагностики_К-3.pdf');
   };
 
-  // Generate and download printable Work Order Passport
   const handlePrintWorkOrderPdf = (order: WorkOrder) => {
     const doc = new jsPDF();
     doc.setFontSize(16);
@@ -509,7 +573,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     doc.save(`Наряд_${order.number}.pdf`);
   };
 
-  // Export shift data to XLSX
   const handleExportXlsx = () => {
     const data = orders.map((o) => ({
       'Номер наряда': o.number,
@@ -529,7 +592,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     XLSX.writeFile(wb, `Смена_Наряды_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  // Filtered Equipment list
   const filteredEquipment = useMemo(() => {
     return EQUIPMENT_LIST.filter((eq) => {
       const matchSearch =
@@ -541,7 +603,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     });
   }, [equipmentSearch, selectedWorkshopFilter]);
 
-  // Filtered Tasks list
   const filteredTasks = useMemo(() => {
     return orders.filter((o) => {
       const matchPriority = taskPriorityFilter === 'all' || o.priority === taskPriorityFilter;
@@ -551,7 +612,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     });
   }, [orders, taskPriorityFilter, selectedWorkshopFilter]);
 
-  // Filtered Employees
   const filteredEmployees = useMemo(() => {
     return employees.filter((emp) => {
       if (teamBrigadeFilter === 'all') return true;
@@ -1846,39 +1906,131 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <span className="font-bold text-[11px] text-slate-700 block">
                     Фото узла ПОСЛЕ ремонта (ИИ-контроль):
                   </span>
-                  <div className="h-40 rounded-xl bg-slate-200 overflow-hidden relative">
-                    <img
-                      src={
-                        selectedOrderForDetail.photoAfterUrl ||
-                        'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80'
-                      }
-                      alt="После ремонта"
-                      className="w-full h-full object-cover"
-                    />
-                    <span className="absolute bottom-2 left-2 bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">
-                      Верифицировано Gemini
-                    </span>
-                  </div>
+                  {selectedOrderForDetail.photoAfterUrl ? (
+                    <div className="h-40 rounded-xl bg-slate-200 overflow-hidden relative">
+                      <img
+                        src={selectedOrderForDetail.photoAfterUrl}
+                        alt="После ремонта"
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute bottom-2 left-2 bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">
+                        Загружено в Supabase
+                      </span>
+                    </div>
+                  ) : selectedOrderForDetail.status === 'in_progress' ? (
+                    <div className="h-40 rounded-xl bg-white border border-dashed border-slate-300 flex flex-col items-center justify-center p-3 text-center">
+                      <Camera className="w-6 h-6 text-slate-400 mb-1" />
+                      <span className="text-[11px] text-slate-600 font-semibold mb-1">Фото ПОСЛЕ ремонта (бакет some)</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleUploadAfterPhoto}
+                        className="text-[10px] text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:bg-blue-50 file:text-blue-700"
+                      />
+                      {closingPhotoUploading && <span className="text-[10px] text-blue-600 mt-1">Загрузка...</span>}
+                      {closingPhotoAfterUrl && <span className="text-[10px] text-emerald-600 font-bold mt-1">Фото прикреплено</span>}
+                    </div>
+                  ) : (
+                    <div className="h-40 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 text-xs">
+                      Фото после еще не загружено
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Sparkles className="w-4 h-4 text-indigo-600" />
-                    <span className="font-bold text-indigo-950 text-xs">
-                      Оценка ИИ-Контролёра: 5 / 5 (96% соответствие)
+              {selectedOrderForDetail.status === 'in_progress' && (
+                <div className="p-3.5 rounded-2xl bg-blue-50/50 border border-blue-200 space-y-2.5">
+                  <div className="font-bold text-slate-900 text-xs flex items-center space-x-1.5">
+                    <Wrench className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Сдача наряда на мультимодальную проверку ИИ:</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Шифр дефекта:</label>
+                      <select
+                        value={closingFaultCode}
+                        onChange={(e) => setClosingFaultCode(e.target.value)}
+                        className="w-full text-xs p-1.5 bg-white border border-slate-200 rounded-lg"
+                      >
+                        {FAULT_CODES.map((fc) => (
+                          <option key={fc.code} value={fc.code}>
+                            {fc.code} - {fc.description.substring(0, 35)}...
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Списание ТМЦ:</label>
+                      <select
+                        value={closingMaterialId}
+                        onChange={(e) => setClosingMaterialId(e.target.value)}
+                        className="w-full text-xs p-1.5 bg-white border border-slate-200 rounded-lg"
+                      >
+                        {MATERIALS_CATALOG.slice(0, 20).map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name.substring(0, 30)}... ({m.unit})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-semibold text-slate-600 block mb-0.5">Описание работ:</label>
+                    <input
+                      type="text"
+                      value={closingWorkDesc}
+                      onChange={(e) => setClosingWorkDesc(e.target.value)}
+                      placeholder="Опишите выполненные операции..."
+                      className="w-full text-xs p-2 bg-white border border-slate-200 rounded-lg"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCompleteOrder}
+                    disabled={closingAiEvaluating}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow-md transition-all active:scale-95"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{closingAiEvaluating ? 'ИИ оценивает наряд (gemini-3.1-flash-lite)...' : 'Завершить и сдать на ИИ-контроль'}</span>
+                  </button>
+                </div>
+              )}
+
+              {selectedOrderForDetail.aiEvaluation && (
+                <div
+                  className={`p-4 rounded-2xl border space-y-2 ${
+                    selectedOrderForDetail.aiEvaluation.verdict === 'rework_needed'
+                      ? 'bg-amber-50/80 border-amber-300 text-amber-950'
+                      : 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Sparkles
+                        className={`w-4 h-4 ${
+                          selectedOrderForDetail.aiEvaluation.verdict === 'rework_needed'
+                            ? 'text-amber-600'
+                            : 'text-emerald-600'
+                        }`}
+                      />
+                      <span className="font-bold text-xs">
+                        Вердикт ИИ: {selectedOrderForDetail.aiEvaluation.verdict === 'approved' ? 'Принято' : selectedOrderForDetail.aiEvaluation.verdict === 'rework_needed' ? 'Требует доработки' : 'С замечаниями'} ({selectedOrderForDetail.aiEvaluation.score}/100)
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white border border-slate-200">
+                      Шифр {selectedOrderForDetail.faultCode || 'Г-03'}
                     </span>
                   </div>
-                  <span className="text-[10px] font-bold text-indigo-700 bg-white px-2 py-0.5 rounded-full border border-indigo-200">
-                    Шифр Г-03
-                  </span>
+                  <p className="text-[11px] leading-relaxed">
+                    {selectedOrderForDetail.aiEvaluation.explanation}
+                  </p>
+                  {selectedOrderForDetail.aiEvaluation.workerFeedback && (
+                    <p className="text-[10px] opacity-80">
+                      Рекомендация: {selectedOrderForDetail.aiEvaluation.workerFeedback}
+                    </p>
+                  )}
                 </div>
-                <p className="text-[11px] text-indigo-900 leading-relaxed">
-                  Анализ изображения подтвердил отсутствие течи индустриального масла, корректную установку
-                  защитного кожуха муфты и наличие обязательных СИЗ у исполнителя. Списание ТМЦ: Подшипник 22320 (1 шт), Масло И-40А (4.2 л) признано обоснованным.
-                </p>
-              </div>
+              )}
 
               <div className="flex flex-wrap items-center justify-between gap-2 pt-4 border-t border-slate-100">
                 <button
@@ -1891,19 +2043,55 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </button>
 
                 <div className="flex items-center space-x-2">
-                  {selectedOrderForDetail.status !== 'closed' && (
+                  {selectedOrderForDetail.status === 'issued' && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          workOrderStore.updateOrderStatus(selectedOrderForDetail.id, 'accepted', 'Исполнитель');
+                          setSelectedOrderForDetail({ ...selectedOrderForDetail, status: 'accepted' });
+                        }}
+                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md"
+                      >
+                        Принять в работу
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          workOrderStore.updateOrderStatus(selectedOrderForDetail.id, 'queued', 'Исполнитель');
+                          setSelectedOrderForDetail({ ...selectedOrderForDetail, status: 'queued' });
+                        }}
+                        className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-md"
+                      >
+                        В очередь
+                      </button>
+                    </>
+                  )}
+
+                  {(selectedOrderForDetail.status === 'accepted' || selectedOrderForDetail.status === 'queued') && (
                     <button
                       type="button"
                       onClick={() => {
-                        workOrderStore.updateOrderStatus(
+                        workOrderStore.updateOrderStatus(selectedOrderForDetail.id, 'in_progress', 'Исполнитель');
+                        setSelectedOrderForDetail({ ...selectedOrderForDetail, status: 'in_progress' });
+                      }}
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md"
+                    >
+                      Начать исполнение
+                    </button>
+                  )}
+
+                  {(selectedOrderForDetail.status === 'completed' || selectedOrderForDetail.status === 'rework_needed') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        workOrderStore.masterCloseOrder(
                           selectedOrderForDetail.id,
-                          'closed',
-                          'Сатпаев Ерлан (Старший мастер)',
-                          'Наряд проверен и утверждён мастером'
+                          'Наряд проверен и утвержден мастером'
                         );
                         setSelectedOrderForDetail(null);
                       }}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-colors"
+                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md"
                     >
                       Подтвердить закрытие наряда
                     </button>
@@ -2278,6 +2466,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               )}
 
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span className="flex items-center space-x-1.5">
+                    <Camera className="w-3.5 h-3.5 text-blue-600" />
+                    <span>6. Фото дефекта узла (бакет Supabase some)</span>
+                  </span>
+                  {formPhotoUploading && <span className="text-blue-600 font-normal">Загрузка в Supabase...</span>}
+                </label>
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleUploadBeforePhoto}
+                    className="text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  {formPhotoBeforeUrl && (
+                    <span className="text-emerald-600 font-semibold text-[11px] truncate max-w-[150px]">
+                      Фото прикреплено
+                    </span>
+                  )}
+                </div>
+              </div>
+
               <div className="flex justify-end space-x-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
@@ -2290,7 +2501,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   type="submit"
                   className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md"
                 >
-                  6. Выдать наряд исполнителю
+                  7. Выдать наряд исполнителю
                 </button>
               </div>
             </form>

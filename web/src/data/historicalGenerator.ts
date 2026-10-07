@@ -115,13 +115,12 @@ export function generateHistoricalOrders(): WorkOrder[] {
     });
   }
 
-  // 2. Seeded Anomaly 2: Worker Токаев Марат has frequent reworks / repeat failures (28%)
   const tokaevWorker = EMPLOYEES.find((e) => e.id === 'emp_4')!;
   for (let i = 1; i <= 18; i++) {
     const daysAgo = 80 - i * 4;
     const orderTime = new Date(now - daysAgo * dayMs);
     const eq = EQUIPMENT_LIST[i % EQUIPMENT_LIST.length];
-    const isRepeat = i % 3 === 0; // High return rate
+    const isRepeat = i % 3 === 0; 
     const durationHours = 2.5 + (i % 2) * 0.8;
     const completedTime = new Date(orderTime.getTime() + durationHours * 3600 * 1000);
 
@@ -169,7 +168,6 @@ export function generateHistoricalOrders(): WorkOrder[] {
     });
   }
 
-  // 3. Seeded Anomaly 3: Abnormal industrial oil I-40 consumption at Crushing Area (KSD-2200)
   const ksdCrusher = EQUIPMENT_LIST.find((e) => e.id === 'eq_ksd_2200')!;
   for (let i = 1; i <= 15; i++) {
     const daysAgo = 75 - i * 4.5;
@@ -202,7 +200,7 @@ export function generateHistoricalOrders(): WorkOrder[] {
       statusHistory: [],
       faultCode: 'С-04',
       materialsSpent: [
-        { materialId: 'mat_3', materialName: 'Масло индустриальное И-40А', quantity: 45, unit: 'л' }, // Аномально высокий объем 45л вместо 15л!
+        { materialId: 'mat_3', materialName: 'Масло индустриальное И-40А', quantity: 45, unit: 'л' }, 
       ],
       performedWorkDescription: 'Доливка 45 литров масла И-40А, осмотр маслопроводов. Визуально обнаружено масляное пятно под корпусом станины.',
       workerComment: 'Возможна трещина в картере станины.',
@@ -220,7 +218,6 @@ export function generateHistoricalOrders(): WorkOrder[] {
     });
   }
 
-  // 4. Populate remaining 480 orders realistically across the 90-day spectrum
   const generalFaults = FAULT_CODES;
   const generalEquipment = EQUIPMENT_LIST;
 
@@ -284,6 +281,5 @@ export function generateHistoricalOrders(): WorkOrder[] {
     });
   }
 
-  // Sort orders by createdAt descending (most recent first)
   return orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
