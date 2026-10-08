@@ -194,7 +194,7 @@ class WorkOrderModel {
 final List<EmployeeData> defaultStaff = [
   EmployeeData(id: 'master_1', fullName: 'Сатпаев Ерлан Касымович', specialty: 'Старший мастер смены А', rank: 6, role: 'master', status: 'busy', rating: 98, onTimeRate: 97),
   EmployeeData(id: 'master_2', fullName: 'Морозов Алексей Викторович', specialty: 'Мастер смены Б', rank: 6, role: 'master', status: 'busy', rating: 94, onTimeRate: 93),
-  EmployeeData(id: 'emp_1', fullName: 'Ахметов Ербол Каиржанович', specialty: 'Слесарь-ремонтник', rank: 5, role: 'worker', status: 'free', rating: 96, onTimeRate: 98),
+  EmployeeData(id: 'emp_1', fullName: 'Ахметов Ербол Каиржанович', specialty: 'Слесарь-ремонтник', rank: 5, role: 'worker', status: 'busy', currentOrderNumber: '№149', rating: 96, onTimeRate: 98),
   EmployeeData(id: 'emp_2', fullName: 'Дуйсенов Серик Болатович', specialty: 'Слесарь-ремонтник', rank: 4, role: 'worker', status: 'busy', currentOrderNumber: '№147', rating: 91, onTimeRate: 92),
   EmployeeData(id: 'emp_3', fullName: 'Иванов Дмитрий Сергеевич', specialty: 'Слесарь-ремонтник (бригадир)', rank: 6, role: 'worker', status: 'queued', rating: 97, onTimeRate: 99),
   EmployeeData(id: 'emp_4', fullName: 'Токаев Марат Жасланович', specialty: 'Слесарь-ремонтник', rank: 4, role: 'worker', status: 'free', rating: 74, onTimeRate: 85, reworkRate: 28.4),
@@ -505,6 +505,22 @@ class _MainScreenState extends State<MainScreen> {
 
   void _initInitialOrders() {
     _orders.addAll([
+      WorkOrderModel(
+        id: 'ord_active_0',
+        number: '№149',
+        title: 'Устранение течи сальникового узла насоса 1ГрТ',
+        description: 'Участок обогащения, насос 1ГрТ 400/40. Капельная течь сальникового уплотнения при давлении 4.2 атм.',
+        equipmentName: 'Насос шламовый 1ГрТ 400/40',
+        workshopName: 'Участок обогащения',
+        priority: 'high',
+        createdAt: DateTime.now().toUtc().subtract(const Duration(minutes: 20)).toIso8601String(),
+        deadlineAt: DateTime.now().toUtc().add(const Duration(minutes: 40)).toIso8601String(),
+        status: 'in_progress',
+        assignedWorkerId: 'emp_1',
+        assignedWorkerName: 'Ахметов Ербол Каиржанович',
+        photoBeforeUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80',
+        faultCode: 'М-02',
+      ),
       WorkOrderModel(
         id: 'ord_active_1',
         number: '№147',
@@ -884,9 +900,10 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildOrdersTab() {
+    List<WorkOrderModel> myOrders = _orders.where((o) => o.assignedWorkerId == widget.workerId).toList();
     List<WorkOrderModel> base = widget.role == 'master'
         ? _orders
-        : _orders.where((o) => o.assignedWorkerId == widget.workerId).toList();
+        : (myOrders.isNotEmpty ? myOrders : _orders);
 
     List<WorkOrderModel> filtered;
     if (_orderFilter == 'in_progress') {
@@ -1660,18 +1677,21 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
     setState(() => _isEvaluating = true);
     if (dialogContext != null && dialogContext.mounted) {
       Navigator.pop(dialogContext);
+      await Future.delayed(const Duration(milliseconds: 150));
     }
 
     final hasNoWork = o.performedWork == null || o.performedWork!.trim().isEmpty;
-    final isRework = withoutPhoto || isExcessMaterials || hasNoWork;
+    final hasNoPhoto = withoutPhoto || o.photoAfterUrl == null || o.photoAfterUrl!.trim().isEmpty;
+    final isRework = withoutPhoto || isExcessMaterials || hasNoWork || hasNoPhoto;
 
     if (isRework) {
       final List<String> reasons = [];
       final List<String> improvements = [];
 
-      if (withoutPhoto) {
+      if (hasNoPhoto) {
         reasons.add('Отсутствует контрольное фото ПОСЛЕ ремонта (устранение дефекта визуально не подтверждено)');
         improvements.add('Приложить обязательное четкое фото отремонтированного узла');
+        o.photoAfterUrl = null;
       }
       if (hasNoWork) {
         reasons.add('Не заполнено описание фактически выполненных работ (отсутствует перечень технологических операций)');
@@ -1690,13 +1710,10 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
       o.aiVerdict = 'rework_needed';
       o.aiScore = 48;
       o.aiNotes = 'Требует доработки: ${reasons.join(". ")}.';
-      o.aiGood = hasNoWork
-          ? 'Наряд зарегистрирован в электронной системе комбината, шифр ${o.faultCode ?? "М-02"} выбран.'
-          : 'Работы по механической переборке узла зафиксированы в электронном журнале нарядов.';
+      o.aiGood = 'Наряд зарегистрирован в электронной системе комбината, шифр ${o.faultCode ?? "М-02"} выбран.';
       o.aiImprove = improvements.asMap().entries.map((e) => '${e.key + 1}. ${e.value}').join('. ');
       o.actualMinutes = 75;
       o.plannedMinutes = 60;
-      if (withoutPhoto) o.photoAfterUrl = null;
     } else {
       o.photoAfterUrl ??= 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80';
       o.status = 'completed';
@@ -1707,37 +1724,6 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
       o.aiImprove = 'В последующих нарядах указывать фактический момент затяжки динамометрическим ключом в Н*м.';
       o.actualMinutes = 42;
       o.plannedMinutes = 60;
-
-      try {
-        final apiKey = ['AQ.Ab8RN6JZV5g78', 'Wo3-ehbGdwEHSdL', '8jg3lNnCCWy1bLrd6HWZHQ'].join();
-        final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=$apiKey');
-        final client = HttpClient();
-        client.badCertificateCallback = ((cert, host, port) => true);
-        client.connectionTimeout = const Duration(seconds: 5);
-        final req = await client.postUrl(url);
-        req.headers.set('Content-Type', 'application/json; charset=UTF-8');
-        final prompt = 'Вы эксперт технического аудита ГОК «Костанайские Минералы». Оцените выполнение наряда ${o.number} на ремонт ${o.equipmentName}. Описание: ${o.performedWork ?? o.description}. Материалы: ${o.materialsSpent ?? "в норме"}. Шифр: ${o.faultCode ?? "М-02"}. Ответьте строго в формате JSON: {"score": 96, "notes": "вердикт 1 предложение", "good": "что сделано хорошо", "improve": "рекомендация"}. Без Markdown, только JSON.';
-        final body = jsonEncode({
-          'contents': [
-            {'role': 'user', 'parts': [{'text': prompt}]}
-          ]
-        });
-        req.add(utf8.encode(body));
-        final resp = await req.close();
-        if (resp.statusCode == 200) {
-          final text = await resp.transform(utf8.decoder).join();
-          final raw = jsonDecode(text);
-          final reply = raw['candidates'][0]['content']['parts'][0]['text'] as String;
-          final clean = reply.replaceAll('```json', '').replaceAll('```', '').trim();
-          final parsed = jsonDecode(clean);
-          if (parsed is Map) {
-            if (parsed['score'] is num) o.aiScore = (parsed['score'] as num).toInt();
-            if (parsed['notes'] is String) o.aiNotes = parsed['notes'];
-            if (parsed['good'] is String) o.aiGood = parsed['good'];
-            if (parsed['improve'] is String) o.aiImprove = parsed['improve'];
-          }
-        }
-      } catch (_) {}
     }
 
     if (mounted) setState(() => _isEvaluating = false);
@@ -1753,7 +1739,7 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
           child: Text(
             o.aiVerdict == 'approved'
                 ? 'Оценка: ${o.aiScore}/100 (5/5)\n\nВердикт: ${o.aiNotes}\n\nЧто сделано хорошо: ${o.aiGood}\n\nНаряд передан старшему мастеру на утверждение.'
-                : 'Оценка: ${o.aiScore}/100 (2.5/5)\n\nВердикт: ${o.aiNotes}\n\nЧто исправить: ${o.aiImprove}\n\nНаряд возвращен исполнителю на доработку.',
+                : 'Оценка: ${o.aiScore}/100 (2.5/5)\n\nВердикт: ${o.aiNotes}\n\nЧто исправить:\n${o.aiImprove}\n\nНаряд возвращен исполнителю на доработку.',
           ),
         ),
         actions: [
@@ -2658,8 +2644,8 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
 
   void _showCompleteDialog() {
     final o = widget.order;
-    String? photoAfterUrl;
-    final workCtrl = TextEditingController(text: o.performedWork ?? 'Замена уплотнения сальника, протяжка болтовых соединений, проверка герметичности.');
+    String? photoAfterUrl = o.photoAfterUrl;
+    final workCtrl = TextEditingController(text: o.performedWork ?? '');
     final matCtrl = TextEditingController(text: o.materialsSpent != null && o.materialsSpent!.isNotEmpty ? o.materialsSpent! : 'Сальник 45х65 - 1 шт, Масло И-40 - 2 л, Болты М16х45 - 4 шт');
     final commentCtrl = TextEditingController(text: o.workerComment != null && o.workerComment!.isNotEmpty ? o.workerComment! : 'Замена уплотнения выполнена в штатном режиме, узел отмыт от потеков, пробный пуск без вибраций.');
     String selectedFault = o.faultCode ?? 'М-02';
@@ -2701,13 +2687,35 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
                   Expanded(
                     child: ListView(
                       children: [
-                        const Text('1. Выполненные работы:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('1. Выполненные работы:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                            Row(
+                              children: [
+                                CupertinoButton(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  onPressed: () => setModalState(() => workCtrl.text = 'Замена уплотнения сальника 45х65, протяжка болтовых соединений, проверка герметичности.'),
+                                  child: const Text('Заполнить образец', style: TextStyle(fontSize: 11, color: Color(0xFF2563EB), fontWeight: FontWeight.w600)),
+                                ),
+                                if (workCtrl.text.isNotEmpty)
+                                  CupertinoButton(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    onPressed: () => setModalState(() => workCtrl.text = ''),
+                                    child: const Text('Очистить', style: TextStyle(fontSize: 11, color: Color(0xFFDC2626))),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 4),
                         CupertinoTextField(
                           controller: workCtrl,
+                          placeholder: 'Опишите фактически выполненные ремонтные работы...',
                           maxLines: 2,
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFCBD5E1))),
+                          onChanged: (_) => setModalState(() {}),
                         ),
                         const SizedBox(height: 14),
                         const Text('2. Шифр неисправности (классификатор):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
@@ -2761,7 +2769,18 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
                           decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFCBD5E1))),
                         ),
                         const SizedBox(height: 14),
-                        const Text('5. Фото ПОСЛЕ ремонта:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('5. Фото ПОСЛЕ ремонта:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                            if (photoAfterUrl != null)
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: () => setModalState(() => photoAfterUrl = null),
+                                child: const Text('Удалить фото', style: TextStyle(fontSize: 11, color: Color(0xFFDC2626))),
+                              ),
+                          ],
+                        ),
                         const SizedBox(height: 6),
                         Row(
                           children: [
@@ -2802,6 +2821,24 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
                                 ),
                               ),
                             ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: CupertinoButton(
+                                color: const Color(0xFFF0FDF4),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                onPressed: withoutPhoto ? null : () {
+                                  setModalState(() => photoAfterUrl = 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80');
+                                },
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(CupertinoIcons.checkmark_seal_fill, size: 14, color: Color(0xFF16A34A)),
+                                    SizedBox(width: 4),
+                                    Text('Демо-фото', style: TextStyle(color: Color(0xFF16A34A), fontSize: 11, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                         if (photoAfterUrl != null)
@@ -2811,7 +2848,7 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
                               children: [
                                 Icon(CupertinoIcons.check_mark_circled_solid, size: 14, color: Color(0xFF16A34A)),
                                 SizedBox(width: 4),
-                                Text('Фото устранения дефекта прикреплено', style: TextStyle(fontSize: 11, color: Color(0xFF16A34A), fontWeight: FontWeight.w600)),
+                                Text('Контрольное фото ПОСЛЕ ремонта прикреплено', style: TextStyle(fontSize: 11, color: Color(0xFF16A34A), fontWeight: FontWeight.w600)),
                               ],
                             ),
                           ),
@@ -2851,9 +2888,7 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
                             o.materialsSpent = matCtrl.text;
                             o.workerComment = commentCtrl.text;
                             o.performedWork = workCtrl.text;
-                            if (photoAfterUrl != null) {
-                              o.photoAfterUrl = photoAfterUrl;
-                            }
+                            o.photoAfterUrl = withoutPhoto ? null : photoAfterUrl;
                             await _runAiEvaluation(
                               o,
                               withoutPhoto: withoutPhoto,
@@ -2979,7 +3014,18 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
         setState(() => _messages.add({'role': 'ai', 'text': 'Регламент ремонта: соблюдайте технологическую карту и правила LOTO.'}));
       }
     } catch (_) {
-      setState(() => _messages.add({'role': 'ai', 'text': 'Проверьте сетевой доступ к ИИ-серверу.'}));
+      final q = text.toLowerCase();
+      String fallback = 'По регламенту АО «Костанайские Минералы»: соблюдайте технологическую карту ТОиР, регламент LOTO и ношение СИЗ.';
+      if (q.contains('м-02') || q.contains('сальник')) {
+        fallback = 'Шифр М-02: Замена уплотнения сальника насоса. Норматив времени: 60 мин. Необходимы манжета 45х65, смазка Литол-24, протяжка крышки крест-накрест.';
+      } else if (q.contains('м-01') || q.contains('подшипник')) {
+        fallback = 'Шифр М-01: Ревизия подшипникового узла грохота или дробилки. Норматив: 75 мин. Требуется промывка керосином, контроль люфтов и забивка смазки Mobilgrease XHP 222.';
+      } else if (q.contains('loto') || q.contains('безопасность') || q.contains('тб')) {
+        fallback = 'Регламент LOTO: обязательная механическая блокировка рубильника навесным замком и вывешивание бирки «НЕ ВКЛЮЧАТЬ - РАБОТАЮТ ЛЮДИ».';
+      } else if (q.contains('норматив') || q.contains('время')) {
+        fallback = 'Типовые нормативы смены: М-02 (сальник) - 60 мин, М-01 (подшипник) - 75 мин, М-05 (несоосность) - 45 мин, Э-01 (изоляция) - 40 мин.';
+      }
+      setState(() => _messages.add({'role': 'ai', 'text': fallback}));
     } finally {
       setState(() => _isLoading = false);
     }
