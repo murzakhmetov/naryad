@@ -1662,16 +1662,41 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
       Navigator.pop(dialogContext);
     }
 
-    if (withoutPhoto || isExcessMaterials) {
+    final hasNoWork = o.performedWork == null || o.performedWork!.trim().isEmpty;
+    final isRework = withoutPhoto || isExcessMaterials || hasNoWork;
+
+    if (isRework) {
+      final List<String> reasons = [];
+      final List<String> improvements = [];
+
+      if (withoutPhoto) {
+        reasons.add('Отсутствует контрольное фото ПОСЛЕ ремонта (устранение дефекта визуально не подтверждено)');
+        improvements.add('Приложить обязательное четкое фото отремонтированного узла');
+      }
+      if (hasNoWork) {
+        reasons.add('Не заполнено описание фактически выполненных работ (отсутствует перечень технологических операций)');
+        improvements.add('Указать подробный отчет о произведенных ремонтных операциях');
+      }
+      if (isExcessMaterials) {
+        reasons.add('Зафиксирован перерасход материалов сверх утвержденного норматива без акта дефектовки');
+        improvements.add('Сдать неизрасходованные ТМЦ на склад либо оформить акт перерасхода');
+      }
+      if (reasons.isEmpty) {
+        reasons.add('Нарушен регламент сдачи наряда');
+        improvements.add('Устранить замечания регламента сдачи смены');
+      }
+
       o.status = 'rework_needed';
       o.aiVerdict = 'rework_needed';
       o.aiScore = 48;
-      o.aiNotes = 'Требует доработки: Отсутствует контрольное фото ПОСЛЕ ремонта и списание материалов превысило норматив без акта дефектовки.';
-      o.aiGood = 'Работы по механической переборке узла зафиксированы в электронном журнале нарядов.';
-      o.aiImprove = '1. Приложить обязательное фото после устранения дефекта. 2. Вернуть неизрасходованный объем материалов на склад комбинатора.';
+      o.aiNotes = 'Требует доработки: ${reasons.join(". ")}.';
+      o.aiGood = hasNoWork
+          ? 'Наряд зарегистрирован в электронной системе комбината, шифр ${o.faultCode ?? "М-02"} выбран.'
+          : 'Работы по механической переборке узла зафиксированы в электронном журнале нарядов.';
+      o.aiImprove = improvements.asMap().entries.map((e) => '${e.key + 1}. ${e.value}').join('. ');
       o.actualMinutes = 75;
       o.plannedMinutes = 60;
-      o.photoAfterUrl = null;
+      if (withoutPhoto) o.photoAfterUrl = null;
     } else {
       o.photoAfterUrl ??= 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80';
       o.status = 'completed';

@@ -172,19 +172,23 @@ export async function aiParseProblem(text: string): Promise<{
 
 export async function aiVerifyOrderClosure(order: Partial<WorkOrder>): Promise<AiEvaluation> {
   const hasPhotos = Boolean(order.photoAfterUrl);
-  const performedWork = order.performedWorkDescription || '';
+  const performedWork = (order.performedWorkDescription || '').trim();
   const materials = order.materialsSpent || [];
 
-  if (!hasPhotos && order.type === 'emergency') {
+  if (!hasPhotos || !performedWork) {
+    const reasons: string[] = [];
+    if (!hasPhotos) reasons.push('отсутствует обязательное контрольное фото выполненных работ «После»');
+    if (!performedWork) reasons.push('не заполнено описание фактически выполненных работ');
+
     return {
       verdict: 'rework_needed',
       score: 35,
-      explanation: 'Наряд отклонен ИИ: отсутствует обязательное фото выполненных работ «После» для внепланового ремонта. Зафиксировано превышение нормы списания расходных материалов без обоснования.',
-      workDescriptionMatch: false,
+      explanation: `Наряд отклонен ИИ: ${reasons.join(', ')}. Зафиксировано нарушение регламента сдачи ремонта.`,
+      workDescriptionMatch: Boolean(performedWork),
       materialLogicCheck: false,
       timeNormMatch: true,
-      workerFeedback: 'Приложите четкое фото отремонтированного узла и скорректируйте количество списанных материалов.',
-      masterNotes: 'Исполнителю отправлено автоматическое требование устранить замечания (отсутствие фото, завышенный расход ТМЦ).',
+      workerFeedback: 'Приложите четкое фото отремонтированного узла и укажите перечень выполненных технологических операций.',
+      masterNotes: 'Исполнителю отправлено автоматическое требование устранить замечания ИИ (фотофиксация / описание работ).',
     };
   }
 
