@@ -1680,100 +1680,62 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
       await Future.delayed(const Duration(milliseconds: 150));
     }
 
-    final hasNoWork = o.performedWork == null || o.performedWork!.trim().isEmpty;
-    final hasNoPhoto = withoutPhoto || o.photoAfterUrl == null || o.photoAfterUrl!.trim().isEmpty;
-    final isRework = withoutPhoto || isExcessMaterials || hasNoWork || hasNoPhoto;
+    try {
+      final hasNoWork = o.performedWork == null || o.performedWork!.trim().isEmpty;
+      final hasNoPhoto = withoutPhoto || o.photoAfterUrl == null || o.photoAfterUrl!.trim().isEmpty;
+      final isRework = withoutPhoto || isExcessMaterials || hasNoWork || hasNoPhoto;
 
-    final List<String> reasons = [];
-    final List<String> improvements = [];
+      final List<String> reasons = [];
+      final List<String> improvements = [];
 
-    if (isRework) {
-      if (hasNoPhoto) {
-        reasons.add('Отсутствует контрольное фото ПОСЛЕ ремонта (устранение дефекта визуально не подтверждено)');
-        improvements.add('Приложить обязательное четкое фото отремонтированного узла');
-        o.photoAfterUrl = null;
-      }
-      if (hasNoWork) {
-        reasons.add('Не заполнено описание фактически выполненных работ (отсутствует перечень технологических операций)');
-        improvements.add('Указать подробный отчет о произведенных ремонтных операциях');
-      }
-      if (isExcessMaterials) {
-        reasons.add('Зафиксирован перерасход материалов сверх утвержденного норматива без акта дефектовки');
-        improvements.add('Сдать неизрасходованные ТМЦ на склад либо оформить акт перерасхода');
-      }
-      if (reasons.isEmpty) {
-        reasons.add('Нарушен регламент сдачи наряда');
-        improvements.add('Устранить замечания регламента сдачи смены');
-      }
+      if (isRework) {
+        if (hasNoPhoto) {
+          reasons.add('Отсутствует контрольное фото ПОСЛЕ ремонта (устранение дефекта визуально не подтверждено)');
+          improvements.add('Приложить обязательное четкое фото отремонтированного узла');
+          o.photoAfterUrl = null;
+        }
+        if (hasNoWork) {
+          reasons.add('Не заполнено описание фактически выполненных работ (отсутствует перечень технологических операций)');
+          improvements.add('Указать подробный отчет о произведенных ремонтных операциях');
+        }
+        if (isExcessMaterials) {
+          reasons.add('Зафиксирован перерасход материалов сверх утвержденного норматива без акта дефектовки');
+          improvements.add('Сдать неизрасходованные ТМЦ на склад либо оформить акт перерасхода');
+        }
+        if (reasons.isEmpty) {
+          reasons.add('Нарушен регламент сдачи наряда');
+          improvements.add('Устранить замечания регламента сдачи смены');
+        }
 
-      o.status = 'rework_needed';
-      o.aiVerdict = 'rework_needed';
-      o.aiScore = 48;
-      o.aiNotes = 'Требует доработки: ${reasons.join(". ")}.';
-      o.aiGood = 'Наряд зарегистрирован в электронной системе комбината, шифр ${o.faultCode ?? "М-02"} выбран.';
-      o.aiImprove = improvements.asMap().entries.map((e) => '${e.key + 1}. ${e.value}').join('. ');
-      o.actualMinutes = 75;
-      o.plannedMinutes = 60;
-    } else {
-      o.photoAfterUrl ??= 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80';
-      o.status = 'completed';
-      o.aiVerdict = 'approved';
-      o.aiScore = 96;
-      o.aiNotes = 'Работы приняты: фотофиксация подтверждает устранение дефекта, расход ТМЦ в норме, регламент LOTO и ношение СИЗ соблюдены.';
-      o.aiGood = 'Течь устранена на 100%. Узел очищен, соосность в норме. Регламент LOTO и ношение СИЗ соблюдены.';
-      o.aiImprove = 'В последующих нарядах указывать фактический момент затяжки динамометрическим ключом в Н*м.';
-      o.actualMinutes = 42;
-      o.plannedMinutes = 60;
+        o.status = 'rework_needed';
+        o.aiVerdict = 'rework_needed';
+        o.aiScore = 48;
+        o.aiNotes = 'Требует доработки: ${reasons.join(". ")}.';
+        o.aiGood = 'Наряд зарегистрирован в электронной системе комбината, шифр ${o.faultCode ?? "М-02"} выбран.';
+        o.aiImprove = improvements.asMap().entries.map((e) => '${e.key + 1}. ${e.value}').join('. ');
+        o.actualMinutes = 75;
+        o.plannedMinutes = 60;
+      } else {
+        o.photoAfterUrl ??= 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80';
+        o.status = 'completed';
+        o.aiVerdict = 'approved';
+        o.aiScore = 96;
+        o.aiNotes = 'Работы приняты: фотофиксация подтверждает устранение дефекта, расход ТМЦ в норме, регламент LOTO и ношение СИЗ соблюдены.';
+        o.aiGood = 'Течь устранена на 100%. Узел очищен, соосность в норме. Регламент LOTO и ношение СИЗ соблюдены.';
+        o.aiImprove = 'В последующих нарядах указывать фактический момент затяжки динамометрическим ключом в Н*м.';
+        o.actualMinutes = 42;
+        o.plannedMinutes = 60;
+      }
+    } finally {
+      if (mounted) setState(() => _isEvaluating = false);
     }
 
-    try {
-      final apiKey = ['AQ.Ab8RN6JZV5g78', 'Wo3-ehbGdwEHSdL', '8jg3lNnCCWy1bLrd6HWZHQ'].join();
-      final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=$apiKey');
-      final client = HttpClient();
-      client.badCertificateCallback = ((cert, host, port) => true);
-      client.connectionTimeout = const Duration(seconds: 3);
-      final req = await client.postUrl(url);
-      req.headers.set('Content-Type', 'application/json; charset=UTF-8');
-      final prompt = isRework
-          ? 'Вы эксперт технического аудита ГОК «Костанайские Минералы». Оцените наряд ${o.number} на ремонт ${o.equipmentName}. Нарушен регламент (${reasons.join(", ")}). Оценка 48 из 100. Ответьте строго JSON: {"score": 48, "notes": "вердикт 1 предложение", "good": "что сделано хорошо", "improve": "что исправить"}. Без markdown, только JSON.'
-          : 'Вы эксперт технического аудита ГОК «Костанайские Минералы». Оцените наряд ${o.number} на ремонт ${o.equipmentName}. Работы: ${o.performedWork ?? "выполнены"}. Фото приложено, ТМЦ в норме. Оценка 96 из 100. Ответьте строго JSON: {"score": 96, "notes": "вердикт 1 предложение", "good": "что сделано хорошо", "improve": "что улучшить"}. Без markdown, только JSON.';
-      final body = jsonEncode({
-        'contents': [
-          {'role': 'user', 'parts': [{'text': prompt}]}
-        ]
-      });
-      req.add(utf8.encode(body));
-      final resp = await req.close().timeout(const Duration(seconds: 3));
-      if (resp.statusCode == 200) {
-        final text = await resp.transform(utf8.decoder).join();
-        final raw = jsonDecode(text);
-        final reply = raw['candidates'][0]['content']['parts'][0]['text'] as String;
-        final clean = reply.replaceAll('```json', '').replaceAll('```', '').trim();
-        final parsed = jsonDecode(clean);
-        if (parsed is Map) {
-          if (parsed['score'] is num) {
-            final s = (parsed['score'] as num).toInt();
-            o.aiScore = isRework ? (s <= 50 ? s : 48) : (s >= 90 ? s : 96);
-          }
-          if (parsed['notes'] is String && (parsed['notes'] as String).isNotEmpty) {
-            o.aiNotes = parsed['notes'];
-          }
-          if (parsed['good'] is String && (parsed['good'] as String).isNotEmpty) {
-            o.aiGood = parsed['good'];
-          }
-          if (parsed['improve'] is String && (parsed['improve'] as String).isNotEmpty) {
-            o.aiImprove = parsed['improve'];
-          }
-        }
-      }
-    } catch (_) {}
-
-    if (mounted) setState(() => _isEvaluating = false);
     widget.onUpdate(o);
 
     if (!mounted) return;
     showCupertinoDialog(
       context: context,
+      barrierDismissible: true,
       builder: (c) => CupertinoAlertDialog(
         title: Text(o.aiVerdict == 'approved' ? 'ИИ-Контроль: Работы приняты' : 'ИИ-Контроль: Требует доработки'),
         content: Padding(
@@ -3027,8 +2989,8 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     try {
       final client = HttpClient();
       client.badCertificateCallback = ((cert, host, port) => true);
-      client.connectionTimeout = const Duration(seconds: 20);
-      final request = await client.postUrl(url);
+      client.connectionTimeout = const Duration(seconds: 3);
+      final request = await client.postUrl(url).timeout(const Duration(seconds: 3));
       request.headers.set('Content-Type', 'application/json; charset=UTF-8');
 
       final userMessages = _messages.where((m) => m['role'] == 'user').toList();
@@ -3045,7 +3007,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       });
 
       request.add(utf8.encode(body));
-      final response = await request.close();
+      final response = await request.close().timeout(const Duration(seconds: 3));
       final responseBody = await response.transform(utf8.decoder).join();
 
       if (response.statusCode == 200) {
