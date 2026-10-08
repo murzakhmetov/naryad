@@ -126,7 +126,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
           </button>
 
           <a
-            href="/naryad-ai-release.apk"
+            href="https://pfmiftikcnoesozqskfz.supabase.co/storage/v1/object/public/some/naryad-ai-release.apk"
             download="naryad-ai-release.apk"
             className="flex items-center space-x-2 px-5 py-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium text-xs sm:text-sm transition-all active:scale-95"
             title="Скачать релизное приложение для Android (48 МБ)"
@@ -373,7 +373,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
               Перейти в панель смены мастера
             </button>
             <a
-              href="/naryad-ai-release.apk"
+              href="https://pfmiftikcnoesozqskfz.supabase.co/storage/v1/object/public/some/naryad-ai-release.apk"
               download="naryad-ai-release.apk"
               className="inline-flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-semibold text-xs transition-all active:scale-95"
             >
