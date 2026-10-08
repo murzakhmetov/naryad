@@ -937,7 +937,7 @@ class _MainScreenState extends State<MainScreen> {
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
-                            color: isSel ? CupertinoColors.white : const Color(0xFF475569),
+                            color: isSel ? CupertinoColors.white : const Color(0xFF0F172A),
                           ),
                         ),
                       ),
@@ -1976,21 +1976,27 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
-            child: CupertinoButton(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(10),
-              onPressed: () => _showOrderDetailsSheet(context, o),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(CupertinoIcons.doc_text_search, size: 14, color: Color(0xFF2563EB)),
-                  const SizedBox(width: 6),
-                  Text(
-                    o.aiVerdict != null ? 'Паспорт наряда и разбор ИИ (${o.aiScore}/100)' : 'Паспорт наряда и параметры SLA',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
-                  ),
-                ],
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF93C5FD), width: 1.2),
+              ),
+              child: CupertinoButton(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                borderRadius: BorderRadius.circular(10),
+                onPressed: () => _showOrderDetailsSheet(context, o),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(CupertinoIcons.doc_text_search, size: 15, color: Color(0xFF1D4ED8)),
+                    const SizedBox(width: 6),
+                    Text(
+                      o.aiVerdict != null ? 'Паспорт наряда и разбор ИИ (${o.aiScore}/100)' : 'Паспорт наряда и параметры SLA',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1D4ED8)),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -2376,20 +2382,20 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
                 o.status = 'accepted';
                 widget.onUpdate(o);
               },
-              child: const Text('Принять', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              child: const Text('Принять', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: CupertinoColors.white)),
             ),
           ),
           const SizedBox(width: 8),
           Expanded(
             child: CupertinoButton(
-              color: const Color(0xFFF59E0B),
+              color: const Color(0xFFD97706),
               padding: const EdgeInsets.symmetric(vertical: 8),
               borderRadius: BorderRadius.circular(10),
               onPressed: () {
                 o.status = 'queued';
                 widget.onUpdate(o);
               },
-              child: const Text('В очередь', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              child: const Text('В очередь', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: CupertinoColors.white)),
             ),
           ),
         ],
@@ -2407,7 +2413,7 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
             o.status = 'in_progress';
             widget.onUpdate(o);
           },
-          child: const Text('Начать исполнение', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          child: const Text('Начать исполнение', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: CupertinoColors.white)),
         ),
       );
     }
@@ -2422,7 +2428,7 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
           onPressed: _isEvaluating ? null : _showCompleteDialog,
           child: Text(
             _isEvaluating ? 'Проверка ИИ...' : 'Завершить (фото ПОСЛЕ)',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: CupertinoColors.white),
           ),
         ),
       );
@@ -2444,7 +2450,7 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
             o.status = 'closed';
             widget.onUpdate(o);
           },
-          child: const Text('Утвердить и закрыть наряд', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+          child: const Text('Утвердить и закрыть наряд', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: CupertinoColors.white)),
         ),
       );
     }

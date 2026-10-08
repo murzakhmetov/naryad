@@ -129,10 +129,10 @@ export const LandingView: React.FC<LandingViewProps> = ({
             href="/naryad-ai-release.apk"
             download="naryad-ai-release.apk"
             className="flex items-center space-x-2 px-5 py-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium text-xs sm:text-sm transition-all active:scale-95"
-            title="Скачать релизное приложение для Android (44 МБ)"
+            title="Скачать релизное приложение для Android (48 МБ)"
           >
             <Smartphone className="w-4 h-4 text-emerald-400" />
-            <span>Скачать APK (Android)</span>
+            <span>Скачать APK (Android, 48 МБ)</span>
           </a>
         </div>
 
@@ -378,7 +378,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
               className="inline-flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-semibold text-xs transition-all active:scale-95"
             >
               <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Скачать Android APK (44 МБ)</span>
+              <span>Скачать Android APK (48 МБ)</span>
             </a>
           </div>
         </div>
