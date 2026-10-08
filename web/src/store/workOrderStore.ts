@@ -51,7 +51,7 @@ class WorkOrderStore {
   constructor() {
     this.employees = [...EMPLOYEES];
     this.historicalOrders = generateHistoricalOrders();
-    setInterval(() => this.checkDeadlines(), 5000);
+    setInterval(() => this.checkDeadlines(), 1000);
   }
 
   public async initSupabase() {
@@ -200,7 +200,8 @@ class WorkOrderStore {
     priority: 'emergency' | 'high' | 'normal' | 'planned';
     title: string;
     description: string;
-    durationHours: number;
+    durationHours?: number;
+    durationMinutes?: number;
     photoBeforeUrl?: string;
     type?: 'emergency' | 'planned' | 'urgent';
   }): WorkOrder {
@@ -210,7 +211,8 @@ class WorkOrderStore {
 
     const orderNumber = `No${150 + this.activeOrders.length}`;
     const now = new Date();
-    const deadline = new Date(now.getTime() + data.durationHours * 3600 * 1000);
+    const minutes = data.durationMinutes ?? ((data.durationHours ?? 2) * 60);
+    const deadline = new Date(now.getTime() + minutes * 60 * 1000);
 
     const newOrder: WorkOrder = {
       id: `ord_${Date.now()}`,
@@ -562,28 +564,42 @@ class WorkOrderStore {
     this.activeOrders.forEach((o) => {
       if (o.status !== 'closed' && o.status !== 'completed') {
         const deadline = new Date(o.deadlineAt).getTime();
-        if (now > deadline && !o.isOverdue) {
-          o.isOverdue = true;
-          o.overdueMinutes = Math.floor((now - deadline) / (60 * 1000));
-          changed = true;
+        if (now > deadline) {
+          const diffMinutes = Math.max(1, Math.floor((now - deadline) / (60 * 1000)));
+          if (!o.isOverdue) {
+            o.isOverdue = true;
+            o.overdueMinutes = diffMinutes;
+            changed = true;
 
-          this.addNotification({
-            orderId: o.id,
-            orderNumber: o.number,
-            type: 'emergency',
-            title: `Просрочен наряд ${o.number}!`,
-            message: `${o.number} просрочен на ${o.overdueMinutes} мин. Оборудование: ${o.equipmentName}. Исполнитель: ${o.assignedWorkerName}.`,
-          });
+            this.addNotification({
+              orderId: o.id,
+              orderNumber: o.number,
+              type: 'emergency',
+              title: `ИИ-Эскалация: Просрочен наряд ${o.number}!`,
+              message: `Наряд ${o.number} (${o.equipmentName}) просрочен на ${diffMinutes} мин! ИИ отправил экстренное уведомление исполнителю (${o.assignedWorkerName}) и мастеру смены.`,
+            });
 
-          supabaseSync.upsertOrder(o);
-          supabaseSync.insertNotification({
-            employeeId: o.assignedWorkerId,
-            orderId: o.id,
-            orderNumber: o.number,
-            type: 'emergency',
-            title: `Просрочен наряд ${o.number}!`,
-            message: `Просрочен на ${o.overdueMinutes} мин.`,
-          });
+            supabaseSync.upsertOrder(o);
+            supabaseSync.insertNotification({
+              employeeId: o.assignedWorkerId,
+              orderId: o.id,
+              orderNumber: o.number,
+              type: 'emergency',
+              title: `ИИ-Эскалация: Наряд ${o.number} просрочен!`,
+              message: `Нормативный срок истек. Превышение: ${diffMinutes} мин.`,
+            });
+            supabaseSync.insertNotification({
+              employeeId: o.issuedByMasterId,
+              orderId: o.id,
+              orderNumber: o.number,
+              type: 'emergency',
+              title: `ИИ-Эскалация: Наряд ${o.number} просрочен!`,
+              message: `Исполнитель ${o.assignedWorkerName} превысил норматив на ${diffMinutes} мин.`,
+            });
+          } else if (o.overdueMinutes !== diffMinutes) {
+            o.overdueMinutes = diffMinutes;
+            changed = true;
+          }
         }
       }
     });

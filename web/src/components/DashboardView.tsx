@@ -166,6 +166,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     workOrderStore.showToast('Смена обновлена', `Загружен сменный журнал: ${dateStr}`, 'info');
   };
 
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getDeadlineInfo = (deadlineAt: string, status: string, isOverdueFlag?: boolean) => {
+    const isClosed = status === 'completed' || status === 'closed';
+    if (isClosed) {
+      return { isOverdue: false, text: 'Выполнен', badgeClass: 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' };
+    }
+    const diff = new Date(deadlineAt).getTime() - currentTime;
+    if (diff <= 0 || isOverdueFlag) {
+      const overdueMins = Math.max(1, Math.floor(Math.abs(diff) / 60000));
+      return {
+        isOverdue: true,
+        text: `ПРОСРОЧЕН (+${overdueMins} мин)`,
+        badgeClass: 'bg-red-500 text-white font-extrabold shadow-sm animate-pulse',
+      };
+    }
+    const totalSecs = Math.floor(diff / 1000);
+    const hours = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
+    const timeStr = hours > 0
+      ? `${hours}ч ${mins < 10 ? '0' : ''}${mins}м ${secs < 10 ? '0' : ''}${secs}с`
+      : `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    return {
+      isOverdue: false,
+      text: `Осталось: ${timeStr}`,
+      badgeClass: mins < 10 && hours === 0
+        ? 'bg-amber-500/15 text-amber-500 font-bold border border-amber-500/30'
+        : 'bg-blue-500/10 text-blue-500 font-semibold border border-blue-500/20',
+    };
+  };
+
   const [activityMessage, setActivityMessage] = useState('');
   const [activityFeed, setActivityFeed] = useState([
     {
@@ -200,6 +236,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [formTitle, setFormTitle] = useState('');
   const [formDesc, setFormDesc] = useState('');
   const [formPriority, setFormPriority] = useState<'emergency' | 'high' | 'normal'>('emergency');
+  const [formDeadlineMinutes, setFormDeadlineMinutes] = useState<number>(120);
   const [formWorker, setFormWorker] = useState(employees.find((e) => e.role === 'worker')?.id || '');
   const [aiSuggestion, setAiSuggestion] = useState<{ workerId: string; reason: string } | null>(null);
   const [formPhotoBeforeUrl, setFormPhotoBeforeUrl] = useState('');
@@ -517,7 +554,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       priority: formPriority,
       title: formTitle || 'Внеплановый аварийный ремонт',
       description: formDesc || 'Устранение неисправности по наряду.',
-      durationHours: 2,
+      durationMinutes: formDeadlineMinutes,
       photoBeforeUrl: formPhotoBeforeUrl || 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80',
     });
 
@@ -525,6 +562,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setFormTitle('');
     setFormDesc('');
     setFormPhotoBeforeUrl('');
+    setFormDeadlineMinutes(120);
   };
 
   const handleCompleteOrder = async () => {
@@ -1606,36 +1644,48 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="space-y-2.5">
                       {filteredTasks
                         .filter((o) => o.status === 'issued' || o.status === 'queued')
-                        .map((ord) => (
-                          <div
-                            key={ord.id}
-                            onClick={() => setSelectedOrderForDetail(ord)}
-                            className={`p-3 rounded-xl ${
-                              isDark ? 'bg-[#131B2E] border-slate-700/80 hover:border-blue-500' : 'bg-white border-slate-200/80 hover:border-blue-400'
-                            } border shadow-xs cursor-pointer space-y-2 transition-all`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-blue-500">{ord.number}</span>
-                              <span
-                                className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
-                                  ord.priority === 'emergency'
-                                    ? 'bg-red-500/10 text-red-500'
-                                    : ord.priority === 'high'
-                                    ? 'bg-amber-500/10 text-amber-500'
-                                    : isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'
-                                }`}
-                              >
-                                {ord.priority}
-                              </span>
+                        .map((ord) => {
+                          const dl = getDeadlineInfo(ord.deadlineAt, ord.status, ord.isOverdue);
+                          return (
+                            <div
+                              key={ord.id}
+                              onClick={() => setSelectedOrderForDetail(ord)}
+                              className={`p-3 rounded-xl ${
+                                dl.isOverdue
+                                  ? isDark ? 'bg-red-950/30 border-red-500 ring-2 ring-red-500/40' : 'bg-red-50/70 border-red-500 ring-2 ring-red-500/30'
+                                  : isDark ? 'bg-[#131B2E] border-slate-700/80 hover:border-blue-500' : 'bg-white border-slate-200/80 hover:border-blue-400'
+                              } border shadow-xs cursor-pointer space-y-2 transition-all`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-blue-500">{ord.number}</span>
+                                <div className="flex items-center space-x-1.5">
+                                  <span
+                                    className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
+                                      ord.priority === 'emergency'
+                                        ? 'bg-red-500/10 text-red-500'
+                                        : ord.priority === 'high'
+                                        ? 'bg-amber-500/10 text-amber-500'
+                                        : isDark ? 'bg-slate-800 text-slate-300' : 'bg-slate-100 text-slate-600'
+                                    }`}
+                                  >
+                                    {ord.priority === 'emergency' ? 'Аварийный' : ord.priority === 'high' ? 'Высокий' : 'Плановый'}
+                                  </span>
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded ${dl.badgeClass}`}>
+                                    {dl.text}
+                                  </span>
+                                </div>
+                              </div>
+                              <h5 className={`font-semibold text-xs ${isDark ? 'text-white' : 'text-slate-900'} line-clamp-2`}>{ord.title}</h5>
+                              <div className="text-[11px] text-slate-400 truncate">{ord.equipmentName}</div>
+                              <div className={`pt-2 border-t ${isDark ? 'border-slate-800' : 'border-slate-100'} flex items-center justify-between text-[10px]`}>
+                                <span className="text-slate-400">{ord.assignedWorkerName}</span>
+                                <span className={dl.isOverdue ? 'text-red-500 font-extrabold' : 'text-blue-500 font-semibold'}>
+                                  {dl.text}
+                                </span>
+                              </div>
                             </div>
-                            <h5 className={`font-semibold text-xs ${isDark ? 'text-white' : 'text-slate-900'} line-clamp-2`}>{ord.title}</h5>
-                            <div className="text-[11px] text-slate-400 truncate">{ord.equipmentName}</div>
-                            <div className={`pt-2 border-t ${isDark ? 'border-slate-800' : 'border-slate-100'} flex items-center justify-between text-[10px] text-slate-400`}>
-                              <span>{ord.assignedWorkerName}</span>
-                              <span>2ч норма</span>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                     </div>
                   </div>
 
@@ -1649,28 +1699,40 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <div className="space-y-2.5">
                       {filteredTasks
                         .filter((o) => o.status === 'in_progress' || o.status === 'accepted' || o.status === 'suspended')
-                        .map((ord) => (
-                          <div
-                            key={ord.id}
-                            onClick={() => setSelectedOrderForDetail(ord)}
-                            className={`p-3 rounded-xl ${
-                              isDark ? 'bg-[#131B2E] border-amber-900/50 hover:border-amber-500' : 'bg-white border-amber-200/80 hover:border-amber-400'
-                            } border shadow-xs cursor-pointer space-y-2 transition-all`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-amber-500">{ord.number}</span>
-                              <span className="text-[9px] font-bold bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded">
-                                {ord.status === 'suspended' ? 'На паузе' : 'В работе'}
-                              </span>
+                        .map((ord) => {
+                          const dl = getDeadlineInfo(ord.deadlineAt, ord.status, ord.isOverdue);
+                          return (
+                            <div
+                              key={ord.id}
+                              onClick={() => setSelectedOrderForDetail(ord)}
+                              className={`p-3 rounded-xl ${
+                                dl.isOverdue
+                                  ? isDark ? 'bg-red-950/30 border-red-500 ring-2 ring-red-500/40' : 'bg-red-50/70 border-red-500 ring-2 ring-red-500/30'
+                                  : isDark ? 'bg-[#131B2E] border-amber-900/50 hover:border-amber-500' : 'bg-white border-amber-200/80 hover:border-amber-400'
+                              } border shadow-xs cursor-pointer space-y-2 transition-all`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold text-amber-500">{ord.number}</span>
+                                <div className="flex items-center space-x-1.5">
+                                  <span className="text-[9px] font-bold bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded">
+                                    {ord.status === 'suspended' ? 'На паузе' : 'В работе'}
+                                  </span>
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded ${dl.badgeClass}`}>
+                                    {dl.text}
+                                  </span>
+                                </div>
+                              </div>
+                              <h5 className={`font-semibold text-xs ${isDark ? 'text-white' : 'text-slate-900'} line-clamp-2`}>{ord.title}</h5>
+                              <div className="text-[11px] text-slate-400 truncate">{ord.equipmentName}</div>
+                              <div className={`pt-2 border-t ${isDark ? 'border-slate-800' : 'border-slate-100'} flex items-center justify-between text-[10px]`}>
+                                <span className="text-slate-400">{ord.assignedWorkerName}</span>
+                                <span className={dl.isOverdue ? 'text-red-500 font-extrabold' : 'text-amber-500 font-semibold'}>
+                                  {dl.text}
+                                </span>
+                              </div>
                             </div>
-                            <h5 className={`font-semibold text-xs ${isDark ? 'text-white' : 'text-slate-900'} line-clamp-2`}>{ord.title}</h5>
-                            <div className="text-[11px] text-slate-400 truncate">{ord.equipmentName}</div>
-                            <div className={`pt-2 border-t ${isDark ? 'border-slate-800' : 'border-slate-100'} flex items-center justify-between text-[10px] text-slate-400`}>
-                              <span>{ord.assignedWorkerName}</span>
-                              <span className="text-amber-500 font-semibold">Идёт таймер</span>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                     </div>
                   </div>
 
@@ -1714,42 +1776,50 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
               {taskViewMode === 'list' && (
                 <div className="space-y-2 max-h-[580px] overflow-y-auto pr-1">
-                  {filteredTasks.map((ord) => (
-                    <div
-                      key={ord.id}
-                      onClick={() => setSelectedOrderForDetail(ord)}
-                      className={`p-3.5 rounded-xl ${
-                        isDark ? 'bg-[#0E1526] border-slate-800 hover:border-slate-700 hover:bg-slate-800/40' : 'bg-white border-slate-200/80 hover:border-slate-300 hover:bg-slate-50/50'
-                      } border shadow-xs flex items-center justify-between cursor-pointer transition-all`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <span className="font-bold text-xs text-blue-500 bg-blue-500/10 px-2 py-1 rounded-md">
-                          {ord.number}
-                        </span>
-                        <div>
-                          <h4 className={`font-semibold text-xs ${isDark ? 'text-white' : 'text-slate-900'}`}>{ord.title}</h4>
-                          <span className="text-[11px] text-slate-400">
-                            {ord.equipmentName} • {ord.assignedWorkerName}
+                  {filteredTasks.map((ord) => {
+                    const dl = getDeadlineInfo(ord.deadlineAt, ord.status, ord.isOverdue);
+                    return (
+                      <div
+                        key={ord.id}
+                        onClick={() => setSelectedOrderForDetail(ord)}
+                        className={`p-3.5 rounded-xl ${
+                          dl.isOverdue
+                            ? isDark ? 'bg-red-950/20 border-red-500 ring-1 ring-red-500/30' : 'bg-red-50/60 border-red-500 ring-1 ring-red-500/20'
+                            : isDark ? 'bg-[#0E1526] border-slate-800 hover:border-slate-700 hover:bg-slate-800/40' : 'bg-white border-slate-200/80 hover:border-slate-300 hover:bg-slate-50/50'
+                        } border shadow-xs flex items-center justify-between cursor-pointer transition-all`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <span className="font-bold text-xs text-blue-500 bg-blue-500/10 px-2 py-1 rounded-md">
+                            {ord.number}
                           </span>
+                          <div>
+                            <h4 className={`font-semibold text-xs ${isDark ? 'text-white' : 'text-slate-900'}`}>{ord.title}</h4>
+                            <span className="text-[11px] text-slate-400">
+                              {ord.equipmentName} • {ord.assignedWorkerName}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2 text-xs">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] ${dl.badgeClass}`}>
+                            {dl.text}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              ord.status === 'completed' || ord.status === 'closed'
+                                ? 'bg-emerald-500/10 text-emerald-500'
+                                : ord.status === 'in_progress'
+                                ? 'bg-amber-500/10 text-amber-500'
+                                : 'bg-blue-500/10 text-blue-500'
+                            }`}
+                          >
+                            {ord.status}
+                          </span>
+                          <ChevronRight className="w-4 h-4 text-slate-400" />
                         </div>
                       </div>
-
-                      <div className="flex items-center space-x-3 text-xs">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            ord.status === 'completed' || ord.status === 'closed'
-                              ? 'bg-emerald-500/10 text-emerald-500'
-                              : ord.status === 'in_progress'
-                              ? 'bg-amber-500/10 text-amber-500'
-                              : 'bg-blue-500/10 text-blue-500'
-                          }`}
-                        >
-                          {ord.status}
-                        </span>
-                        <ChevronRight className="w-4 h-4 text-slate-400" />
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -2283,6 +2353,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
 
             <div className="space-y-4 text-xs">
+              {(() => {
+                const detailDl = getDeadlineInfo(selectedOrderForDetail.deadlineAt, selectedOrderForDetail.status, selectedOrderForDetail.isOverdue);
+                return (
+                  <div className={`p-3 rounded-2xl ${
+                    detailDl.isOverdue
+                      ? isDark ? 'bg-red-950/40 border-red-500/80 text-red-200' : 'bg-red-50 border-red-400 text-red-900'
+                      : isDark ? 'bg-slate-800/60 border-slate-700/60' : 'bg-slate-50 border-slate-200'
+                  } border flex items-center justify-between`}>
+                    <div className="flex items-center space-x-2">
+                      <Clock className={`w-4 h-4 ${detailDl.isOverdue ? 'text-red-500 animate-pulse' : 'text-blue-500'}`} />
+                      <div>
+                        <span className="font-bold block">
+                          {detailDl.isOverdue ? 'ВНИМАНИЕ: СРОК ПРЕВЫШЕН' : 'Нормативный срок наряда (SLA):'}
+                        </span>
+                        <span className="text-[11px] opacity-80">
+                          Крайний срок: {new Date(selectedOrderForDetail.deadlineAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })} ({new Date(selectedOrderForDetail.deadlineAt).toLocaleDateString('ru-RU')})
+                        </span>
+                      </div>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${detailDl.badgeClass}`}>
+                      {detailDl.text}
+                    </span>
+                  </div>
+                );
+              })()}
               <div className={`p-3.5 rounded-2xl ${
                 isDark ? 'bg-slate-800/50 border-slate-700/60 text-slate-200' : 'bg-slate-50 border-slate-200/60 text-slate-700'
               } border leading-relaxed`}>
@@ -2900,6 +2995,61 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
               </div>
 
+              <div className={`p-3 rounded-xl ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-slate-50 border-slate-200'} border text-xs space-y-2`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-slate-400 flex items-center space-x-1.5">
+                    <Clock className="w-3.5 h-3.5 text-blue-500" />
+                    <span>6. Нормативный срок наряда (SLA):</span>
+                  </span>
+                  <span className="font-bold text-blue-500">
+                    {formDeadlineMinutes >= 60
+                      ? `${Math.floor(formDeadlineMinutes / 60)} ч ${formDeadlineMinutes % 60 ? (formDeadlineMinutes % 60) + ' мин' : ''}`
+                      : `${formDeadlineMinutes} мин`}
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+                  {[
+                    { label: '1 мин (демо)', value: 1, highlight: true },
+                    { label: '15 мин', value: 15, highlight: false },
+                    { label: '30 мин', value: 30, highlight: false },
+                    { label: '1 час', value: 60, highlight: false },
+                    { label: '2 часа', value: 120, highlight: false },
+                    { label: '4 часа', value: 240, highlight: false },
+                    { label: '8 часов', value: 480, highlight: false },
+                  ].map((preset) => (
+                    <button
+                      key={preset.value}
+                      type="button"
+                      onClick={() => setFormDeadlineMinutes(preset.value)}
+                      className={`px-2 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                        formDeadlineMinutes === preset.value
+                          ? preset.highlight
+                            ? 'bg-red-600 text-white shadow-sm ring-2 ring-red-400'
+                            : 'bg-blue-600 text-white shadow-sm'
+                          : preset.highlight
+                          ? isDark ? 'bg-red-950/40 text-red-400 border border-red-800' : 'bg-red-50 text-red-700 border border-red-200'
+                          : isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center space-x-2 pt-1">
+                  <span className="text-[11px] text-slate-400">Свой срок (минут):</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="1440"
+                    value={formDeadlineMinutes}
+                    onChange={(e) => setFormDeadlineMinutes(Math.max(1, parseInt(e.target.value) || 1))}
+                    className={`w-24 px-2.5 py-1 rounded-lg ${
+                      isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'
+                    } border text-xs font-bold text-center`}
+                  />
+                </div>
+              </div>
+
               {aiSuggestion && (
                 <div className={`p-3 rounded-xl ${
                   isDark ? 'bg-blue-950/30 border-blue-900/50 text-blue-300' : 'bg-blue-50/70 border-blue-200 text-blue-900'
@@ -2916,9 +3066,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <label className="block font-semibold text-slate-400 mb-1 flex items-center justify-between">
                   <span className="flex items-center space-x-1.5">
                     <Camera className="w-3.5 h-3.5 text-blue-500" />
-                    <span>6. Фото дефекта узла (бакет Supabase some)</span>
+                    <span>7. Фото дефекта узла (ДО ремонта)</span>
                   </span>
-                  {formPhotoUploading && <span className="text-blue-500 font-normal">Загрузка в Supabase...</span>}
+                  {formPhotoUploading && <span className="text-blue-500 font-normal">Загрузка в хранилище...</span>}
                 </label>
                 <div className="flex items-center space-x-3">
                   <input

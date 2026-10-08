@@ -22,7 +22,6 @@
   }
 }
 
-/* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -41,7 +40,6 @@
   background: rgba(148, 163, 184, 0.45);
 }
 
-/* Linear Glassmorphism */
 .terminal-glass {
   background: rgba(13, 14, 19, 0.85);
   backdrop-filter: blur(20px);
@@ -49,7 +47,6 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Master Dashboard Card */
 .industry-card {
   background: #FFFFFF;
   border-radius: 1.75rem;
@@ -57,7 +54,6 @@
   border: 1px solid #EEF2F6;
 }
 
-/* Mobile Client Card */
 .mobile-card {
   background: #FFFFFF;
   border-radius: 1.25rem;

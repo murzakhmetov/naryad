@@ -1,12 +1,7 @@
--- NaryadAI Supabase Schema
--- Run this against the Supabase PostgreSQL database
-
--- Enable realtime
 alter publication supabase_realtime add table work_orders;
 alter publication supabase_realtime add table employees;
 alter publication supabase_realtime add table notifications;
 
--- Profiles table (linked to Supabase Auth)
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text not null,
@@ -27,7 +22,6 @@ create policy "Users can update own profile" on profiles
 create policy "Users can insert own profile" on profiles
   for insert with check (auth.uid() = id);
 
--- Workshops
 create table if not exists workshops (
   id text primary key,
   name text not null,
@@ -40,7 +34,6 @@ alter table workshops enable row level security;
 create policy "Workshops readable by all" on workshops for select using (true);
 create policy "Workshops writable by authenticated" on workshops for all using (auth.role() = 'authenticated');
 
--- Equipment
 create table if not exists equipment (
   id text primary key,
   name text not null,
@@ -58,7 +51,6 @@ alter table equipment enable row level security;
 create policy "Equipment readable by all" on equipment for select using (true);
 create policy "Equipment writable by authenticated" on equipment for all using (auth.role() = 'authenticated');
 
--- Brigades
 create table if not exists brigades (
   id text primary key,
   name text not null,
@@ -70,7 +62,6 @@ alter table brigades enable row level security;
 create policy "Brigades readable by all" on brigades for select using (true);
 create policy "Brigades writable by authenticated" on brigades for all using (auth.role() = 'authenticated');
 
--- Employees
 create table if not exists employees (
   id text primary key,
   full_name text not null,
@@ -94,7 +85,6 @@ alter table employees enable row level security;
 create policy "Employees readable by all" on employees for select using (true);
 create policy "Employees writable by authenticated" on employees for all using (auth.role() = 'authenticated');
 
--- Fault codes
 create table if not exists fault_codes (
   code text primary key,
   category text not null,
@@ -105,7 +95,6 @@ create table if not exists fault_codes (
 alter table fault_codes enable row level security;
 create policy "Fault codes readable by all" on fault_codes for select using (true);
 
--- Materials catalog
 create table if not exists materials (
   id text primary key,
   code text not null,
@@ -118,7 +107,6 @@ create table if not exists materials (
 alter table materials enable row level security;
 create policy "Materials readable by all" on materials for select using (true);
 
--- Work orders (main table)
 create table if not exists work_orders (
   id text primary key,
   number text not null,
@@ -160,7 +148,6 @@ create policy "Work orders insertable by authenticated" on work_orders for inser
 create policy "Work orders updatable by authenticated" on work_orders for update using (auth.role() = 'authenticated');
 create policy "Work orders deletable by authenticated" on work_orders for delete using (auth.role() = 'authenticated');
 
--- Notifications
 create table if not exists notifications (
   id text primary key,
   user_id uuid references auth.users(id),
@@ -179,7 +166,6 @@ create policy "Notifications readable by owner" on notifications for select usin
 create policy "Notifications insertable by authenticated" on notifications for insert with check (auth.role() = 'authenticated');
 create policy "Notifications updatable by owner" on notifications for update using (auth.uid() = user_id or user_id is null);
 
--- Auto-update updated_at on work_orders
 create or replace function update_updated_at_column()
 returns trigger as $$
 begin
@@ -192,7 +178,6 @@ create trigger update_work_orders_updated_at
   before update on work_orders
   for each row execute function update_updated_at_column();
 
--- Function to handle new user signup -> auto-create profile
 create or replace function handle_new_user()
 returns trigger as $$
 begin
@@ -211,8 +196,6 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function handle_new_user();
 
--- Storage bucket policies (bucket "some" already exists)
--- Allow authenticated users to upload
 insert into storage.buckets (id, name, public) values ('some', 'some', true)
 on conflict (id) do update set public = true;
 

@@ -241,7 +241,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(
     url: 'https://pfmiftikcnoesozqskfz.supabase.co',
-    anonKey: 'sb_publishable_sCwXPQDWrNK-AbcMZhvEnw_3Dr1vDyi',
+    publishableKey: 'sb_publishable_sCwXPQDWrNK-AbcMZhvEnw_3Dr1vDyi',
   );
   runApp(const NaryadAiApp());
 }
@@ -453,6 +453,7 @@ class _MainScreenState extends State<MainScreen> {
   late RealtimeChannel _channel;
   Timer? _deadlineTimer;
   Timer? _pollTimer;
+  String _orderFilter = 'all';
 
   @override
   void initState() {
@@ -460,17 +461,19 @@ class _MainScreenState extends State<MainScreen> {
     _initInitialOrders();
     _setupSupabaseRealtime();
     _fetchOrdersFromSupabase();
-    _deadlineTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+    _deadlineTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       final now = DateTime.now();
       for (final o in _orders) {
         if (o.status != 'completed' && o.status != 'closed') {
           final deadline = DateTime.tryParse(o.deadlineAt);
           if (deadline != null && now.isAfter(deadline) && !o.isOverdue) {
+            final diff = now.difference(deadline).inMinutes;
+            final overdueMins = diff > 0 ? diff : 1;
             setState(() {
               o.isOverdue = true;
             });
             _broadcastOrder(o);
-            _showNotification('Внимание: Просрочка ИИ!', 'Наряд ${o.number} (${o.equipmentName}) просрочен! ИИ отправил эскалацию мастеру и исполнителю.');
+            _showNotification('Внимание: Просрочка ИИ!', 'Наряд ${o.number} (${o.equipmentName}) просрочен на $overdueMins мин! ИИ отправил эскалацию мастеру и исполнителю.');
           }
         }
       }
@@ -534,6 +537,87 @@ class _MainScreenState extends State<MainScreen> {
         assignedWorkerName: 'Васильев Олег Петрович',
         photoBeforeUrl: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80',
         faultCode: 'Э-02',
+      ),
+      WorkOrderModel(
+        id: 'ord_comp_1',
+        number: '№145',
+        title: 'Замена уплотнения насоса 1ГрТ 400/40',
+        description: 'Устранение течи сальникового узла, протяжка крышки сальника.',
+        equipmentName: 'Насос шламовый 1ГрТ 400/40',
+        workshopName: 'Участок обогащения',
+        priority: 'emergency',
+        createdAt: DateTime.now().subtract(const Duration(hours: 3)).toIso8601String(),
+        deadlineAt: DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(),
+        status: 'completed',
+        assignedWorkerId: 'emp_1',
+        assignedWorkerName: 'Ахметов Ербол Каиржанович',
+        photoBeforeUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80',
+        photoAfterUrl: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80',
+        faultCode: 'М-02',
+        performedWork: 'Демонтаж защитного кожуха, выпрессовка изношенного сальника, монтаж манжеты 45х65, протяжка сальниковой крышки крест-накрест, пробный прокрут вала.',
+        materialsSpent: 'Сальник 45х65 - 1 шт, Смазка Литол-24 - 0.2 кг, Болты М16х45 - 4 шт',
+        workerComment: 'Узел полностью герметичен, люфты вала отсутствуют, блокировка LOTO снята перед пуском.',
+        aiScore: 98,
+        aiVerdict: 'approved',
+        aiNotes: 'Работы приняты: фотофиксация подтверждает идеальное прилегание крышки сальника и отсутствие потеков пульпы. СИЗ надеты, списание ТМЦ в пределах нормы.',
+        aiGood: '100% герметичность при опрессовке. Рабочая зона убрана, соосность муфты насоса в допуске 0.05 мм. Норматив времени перевыполнен.',
+        aiImprove: 'В последующих нарядах указывать фактический момент затяжки динамометрическим ключом в Н*м.',
+        actualMinutes: 44,
+        plannedMinutes: 60,
+      ),
+      WorkOrderModel(
+        id: 'ord_comp_2',
+        number: '№146',
+        title: 'Ревизия подшипникового узла грохота ГИТ-51М',
+        description: 'Промывка подшипников 22320, замена смазки, проверка амплитуды колебаний.',
+        equipmentName: 'Грохот инерционный ГИТ-51М',
+        workshopName: 'Участок грохочения',
+        priority: 'high',
+        createdAt: DateTime.now().subtract(const Duration(hours: 4)).toIso8601String(),
+        deadlineAt: DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
+        status: 'completed',
+        assignedWorkerId: 'emp_2',
+        assignedWorkerName: 'Дуйсенов Серик Болатович',
+        photoBeforeUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80',
+        photoAfterUrl: 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80',
+        faultCode: 'М-01',
+        performedWork: 'Вскрытие корпусов подшипников 22320, промывка, визуальный контроль дорожек качения, забивка смазки Mobilgrease XHP 222, замена лабиринтных колец.',
+        materialsSpent: 'Подшипник 22320 - 2 шт, Смазка Mobilgrease - 1.5 кг, Кольца уплотнительные - 2 шт',
+        workerComment: 'Вибрация в норме (2.1 мм/с). Температура корпусов после 30 мин обкатки +42°C.',
+        aiScore: 96,
+        aiVerdict: 'approved',
+        aiNotes: 'Работы приняты: вибродиагностика и тепловизионный снимок подтверждают норму. Списание подшипников подтверждено заводским номером партии.',
+        aiGood: 'Высокая культура ремонта, соблюдение температурного режима смазки, отсутствие радиальных люфтов.',
+        aiImprove: 'Сдавать демонтированные изношенные подшипники на дефектовку в ЦРМ комбината.',
+        actualMinutes: 50,
+        plannedMinutes: 75,
+      ),
+      WorkOrderModel(
+        id: 'ord_rework_1',
+        number: '№144',
+        title: 'Устранение заклинивания питателя ПП-1-15',
+        description: 'Остановка привода пластинчатого питателя, подозрение на попадание негабарита.',
+        equipmentName: 'Питатель пластинчатый ПП-1-15',
+        workshopName: 'Участок дробления',
+        priority: 'emergency',
+        createdAt: DateTime.now().subtract(const Duration(hours: 5)).toIso8601String(),
+        deadlineAt: DateTime.now().subtract(const Duration(hours: 3)).toIso8601String(),
+        status: 'rework_needed',
+        assignedWorkerId: 'emp_4',
+        assignedWorkerName: 'Токаев Марат Жасланович',
+        photoBeforeUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80',
+        photoAfterUrl: null,
+        faultCode: 'М-05',
+        performedWork: 'Очистка лотка питателя от заклинившего куска руды, визуальный осмотр пластин полотна.',
+        materialsSpent: 'Масло И-40 - 5 л (норма 1 л), Болты М20 - 8 шт',
+        workerComment: 'Посторонний негабарит удален ломом, полотно прокручено.',
+        aiScore: 48,
+        aiVerdict: 'rework_needed',
+        aiNotes: 'Требует доработки: 1) Отсутствует контрольное фото ПОСЛЕ ремонта - устранение заклинивания и целостность пластин полотна не подтверждены. 2) Зафиксирован перерасход масла И-40 (+400% сверх нормы) без оформления акта дефектовки.',
+        aiGood: 'Работы по извлечению негабарита описаны в отчете, шифр М-05 выбран корректно.',
+        aiImprove: 'Приложить четкое фото полотна питателя после очистки; оформить служебную записку на перерасход масла либо сдать неизрасходованный объем на склад.',
+        actualMinutes: 75,
+        plannedMinutes: 60,
       ),
     ]);
   }
@@ -648,12 +732,16 @@ class _MainScreenState extends State<MainScreen> {
         ? const [
             BottomNavigationBarItem(icon: Icon(CupertinoIcons.person_2_fill), label: 'Смена'),
             BottomNavigationBarItem(icon: Icon(CupertinoIcons.square_list_fill), label: 'Наряды'),
-            BottomNavigationBarItem(icon: Icon(CupertinoIcons.chart_bar_square_fill), label: 'Рейтинг'),
+            BottomNavigationBarItem(icon: Icon(CupertinoIcons.doc_chart_fill), label: 'Отчет смены'),
+            BottomNavigationBarItem(icon: Icon(CupertinoIcons.chart_bar_square_fill), label: 'Аналитика'),
             BottomNavigationBarItem(icon: Icon(CupertinoIcons.sparkles), label: 'ИИ'),
           ]
         : const [
-            BottomNavigationBarItem(icon: Icon(CupertinoIcons.square_list_fill), label: 'Мои наряды'),
-            BottomNavigationBarItem(icon: Icon(CupertinoIcons.sparkles), label: 'ИИ-Помощник'),
+            BottomNavigationBarItem(icon: Icon(CupertinoIcons.square_list_fill), label: 'Наряды'),
+            BottomNavigationBarItem(icon: Icon(CupertinoIcons.checkmark_seal_fill), label: 'История и ИИ'),
+            BottomNavigationBarItem(icon: Icon(CupertinoIcons.doc_chart_fill), label: 'Отчет смены'),
+            BottomNavigationBarItem(icon: Icon(CupertinoIcons.chart_bar_square_fill), label: 'Аналитика'),
+            BottomNavigationBarItem(icon: Icon(CupertinoIcons.sparkles), label: 'ИИ'),
           ];
 
     return CupertinoTabScaffold(
@@ -666,13 +754,25 @@ class _MainScreenState extends State<MainScreen> {
             case 1:
               return _buildOrdersTab();
             case 2:
-              return _buildRatingTab();
+              return _buildShiftReportTab();
+            case 3:
+              return _buildAnalyticsTab();
             default:
               return AiAssistantScreen(userName: widget.workerName);
           }
         } else {
-          if (index == 0) return _buildOrdersTab();
-          return AiAssistantScreen(userName: widget.workerName);
+          switch (index) {
+            case 0:
+              return _buildOrdersTab();
+            case 1:
+              return _buildCompletedHistoryTab();
+            case 2:
+              return _buildShiftReportTab();
+            case 3:
+              return _buildAnalyticsTab();
+            default:
+              return AiAssistantScreen(userName: widget.workerName);
+          }
         }
       },
     );
@@ -784,9 +884,20 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildOrdersTab() {
-    final filtered = widget.role == 'master'
+    List<WorkOrderModel> base = widget.role == 'master'
         ? _orders
         : _orders.where((o) => o.assignedWorkerId == widget.workerId).toList();
+
+    List<WorkOrderModel> filtered;
+    if (_orderFilter == 'in_progress') {
+      filtered = base.where((o) => o.status == 'in_progress' || o.status == 'accepted').toList();
+    } else if (_orderFilter == 'completed') {
+      filtered = base.where((o) => o.status == 'completed' || o.status == 'closed').toList();
+    } else if (_orderFilter == 'overdue') {
+      filtered = base.where((o) => o.isOverdue && o.status != 'completed' && o.status != 'closed').toList();
+    } else {
+      filtered = base;
+    }
 
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
@@ -800,44 +911,83 @@ class _MainScreenState extends State<MainScreen> {
             : null,
       ),
       child: SafeArea(
-        child: filtered.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
                   children: [
-                    const Icon(CupertinoIcons.doc_text, size: 48, color: Color(0xFF94A3B8)),
-                    const SizedBox(height: 12),
-                    Text(
-                      widget.role == 'master' ? 'Нет активных нарядов' : 'У вас пока нет назначенных нарядов',
-                      style: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
-                    ),
-                  ],
+                    {'key': 'all', 'label': 'Все (${base.length})'},
+                    {'key': 'in_progress', 'label': 'В работе (${base.where((o) => o.status == "in_progress" || o.status == "accepted").length})'},
+                    {'key': 'completed', 'label': 'Исполнены (${base.where((o) => o.status == "completed" || o.status == "closed").length})'},
+                    {'key': 'overdue', 'label': 'Просрочены (${base.where((o) => o.isOverdue && o.status != "completed" && o.status != "closed").length})'},
+                  ].map((f) {
+                    final isSel = _orderFilter == f['key'];
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: CupertinoButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        color: isSel ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
+                        borderRadius: BorderRadius.circular(8),
+                        onPressed: () => setState(() => _orderFilter = f['key'] as String),
+                        child: Text(
+                          f['label'] as String,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: isSel ? CupertinoColors.white : const Color(0xFF475569),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: filtered.length,
-                itemBuilder: (context, index) {
-                  final order = filtered[index];
-                  return OrderCardWidget(
-                    order: order,
-                    role: widget.role,
-                    currentWorkerId: widget.workerId,
-                    onUpdate: _broadcastOrder,
-                    onUploadPhoto: _uploadPhoto,
-                  );
-                },
               ),
+            ),
+            Expanded(
+              child: filtered.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(CupertinoIcons.doc_text, size: 48, color: Color(0xFF94A3B8)),
+                          const SizedBox(height: 12),
+                          Text(
+                            widget.role == 'master' ? 'Нет нарядов в этой категории' : 'Нет нарядов в этой категории',
+                            style: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      itemCount: filtered.length,
+                      itemBuilder: (context, index) {
+                        final order = filtered[index];
+                        return OrderCardWidget(
+                          order: order,
+                          role: widget.role,
+                          currentWorkerId: widget.workerId,
+                          onUpdate: _broadcastOrder,
+                          onUploadPhoto: _uploadPhoto,
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildRatingTab() {
-    final sorted = List<EmployeeData>.from(_staff.where((e) => e.role == 'worker'))..sort((a, b) => b.rating.compareTo(a.rating));
+  Widget _buildCompletedHistoryTab() {
+    final list = _orders.where((o) => o.status == 'completed' || o.status == 'closed' || o.status == 'rework_needed').toList();
 
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(
-        middle: Text('Рейтинг смены и аналитика'),
+        middle: Text('История нарядов и ИИ'),
       ),
       child: SafeArea(
         child: ListView(
@@ -849,19 +999,162 @@ class _MainScreenState extends State<MainScreen> {
                 gradient: const LinearGradient(colors: [Color(0xFF1E293B), Color(0xFF0F172A)]),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Сводный отчет за смену:', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-                  SizedBox(height: 6),
-                  Text('Выполнение плана ремонтов: 98.4%', style: TextStyle(color: CupertinoColors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                  SizedBox(height: 4),
-                  Text('Среднее время закрытия: 1 ч 42 мин • 0 повторных отказов', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 11)),
+                  const Text('Верификация выполненных работ нейросетью:', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 6),
+                  Text('Исполнено: ${list.length} нарядов • Средний балл ИИ: 96%', style: const TextStyle(color: CupertinoColors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  const Text('Контроль фото «до/после» • Анализ расхода ТМЦ • Нормативы SLA', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 11)),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            const Text('Топ исполнителей смены:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+            const SizedBox(height: 16),
+            ...list.map((order) => OrderCardWidget(
+              order: order,
+              role: widget.role,
+              currentWorkerId: widget.workerId,
+              onUpdate: _broadcastOrder,
+              onUploadPhoto: _uploadPhoto,
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShiftReportTab() {
+    final sorted = List<EmployeeData>.from(_staff.where((e) => e.role == 'worker'))..sort((a, b) => b.rating.compareTo(a.rating));
+    final completedCount = _orders.where((o) => o.status == 'completed' || o.status == 'closed').length;
+    final inProgressCount = _orders.where((o) => o.status == 'in_progress' || o.status == 'accepted').length;
+    final overdueCount = _orders.where((o) => o.isOverdue && o.status != 'completed' && o.status != 'closed').length;
+
+    return CupertinoPageScaffold(
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('Отчет за смену'),
+      ),
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF0F172A), Color(0xFF1E293B)]),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('СМЕНА А • ДОК', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text('08:00 - 20:00', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('Выполнение плана ремонтов: 98.4%', style: TextStyle(color: CupertinoColors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  const Text('Старший мастер: Сатпаев Е.К. • 0 повторных отказов узлов', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF86EFAC))),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Закрыто', style: TextStyle(fontSize: 11, color: Color(0xFF166534), fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 2),
+                        Text('$completedCount нарядов', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF14532D))),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFCD34D))),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('В работе', style: TextStyle(fontSize: 11, color: Color(0xFF92400E), fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 2),
+                        Text('$inProgressCount наряда', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF78350F))),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFFCA5A5))),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Просрочено', style: TextStyle(fontSize: 11, color: Color(0xFF991B1B), fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 2),
+                        Text('$overdueCount наряд', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF7F1D1D))),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: CupertinoColors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFE2E8F0))),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Ключевые производственные метрики смены:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                  SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Среднее время закрытия наряда:', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      Text('44 мин (норматив 60 мин)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
+                    ],
+                  ),
+                  SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Экономия рабочего времени:', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      Text('2 ч 48 мин', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF2563EB))),
+                    ],
+                  ),
+                  SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Средняя оценка верификации ИИ:', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      Text('96.4 / 100', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
+                    ],
+                  ),
+                  SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Соблюдение ТБ и регламента LOTO:', style: TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                      Text('100% (0 нарушений)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text('Рейтинг исполнителей смены:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
             const SizedBox(height: 8),
             ...sorted.map((w) => Container(
               margin: const EdgeInsets.only(bottom: 8),
@@ -869,7 +1162,7 @@ class _MainScreenState extends State<MainScreen> {
               decoration: BoxDecoration(color: CupertinoColors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE2E8F0))),
               child: Row(
                 children: [
-                  Text('${sorted.indexOf(w) + 1}.', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B), fontSize: 14)),
+                  Text('${sorted.indexOf(w) + 1}.', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF64748B), fontSize: 13)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -883,7 +1176,7 @@ class _MainScreenState extends State<MainScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('${w.rating}%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: w.rating >= 90 ? const Color(0xFF16A34A) : const Color(0xFFDC2626))),
+                      Text('${w.rating}%', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: w.rating >= 90 ? const Color(0xFF16A34A) : const Color(0xFFDC2626))),
                       Text('В срок: ${w.onTimeRate}%', style: const TextStyle(fontSize: 10, color: Color(0xFF64748B))),
                     ],
                   ),
@@ -892,6 +1185,177 @@ class _MainScreenState extends State<MainScreen> {
             )),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsTab() {
+    return CupertinoPageScaffold(
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('Аналитика на истории 3 мес.'),
+      ),
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF1E3A8A), Color(0xFF0F172A)]),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('АО «Костанайские Минералы» • ДОК', style: TextStyle(color: Color(0xFF93C5FD), fontSize: 11, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 6),
+                  Text('Анализ за 3 месяца: 348 нарядов', style: TextStyle(color: CupertinoColors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 4),
+                  Text('96.2% сдано в срок SLA • 93.8 ср. балл ИИ • -34% повторных ремонтов', style: TextStyle(color: Color(0xFFBAE6FD), fontSize: 11)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text('Заложенные закономерности ИИ:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+            const SizedBox(height: 8),
+            _buildInsightCard(
+              title: 'Пятничный пик отказов шламовых насосов 1ГрТ',
+              description: '78% отказов сальников насоса 1ГрТ (шифр М-02) приходятся на пятничные смены из-за повышенной плотности пульпы (до 48% твердого) перед промывкой секций.',
+              badge: 'Участок обогащения',
+              badgeColor: const Color(0xFF2563EB),
+              icon: CupertinoIcons.chart_pie_fill,
+            ),
+            const SizedBox(height: 10),
+            _buildInsightCard(
+              title: 'Квалификация и скорость закрытия ремонтов',
+              description: 'Слесари 5-6 разрядов (Ахметов, Иванов) закрывают наряды по дробилкам КМД на 22% быстрее норматива с оценкой качества 98% без единого возврата.',
+              badge: 'Квалификация',
+              badgeColor: const Color(0xFF16A34A),
+              icon: CupertinoIcons.person_badge_plus_fill,
+            ),
+            const SizedBox(height: 10),
+            _buildInsightCard(
+              title: 'Эффект фотофиксации ДО и ПОСЛЕ',
+              description: 'Внедрение машинного зрения сократило повторные ремонты на 34% и исключило формальное закрытие нарядов без фактического устранения дефектов.',
+              badge: 'Машинное зрение',
+              badgeColor: const Color(0xFF7C3AED),
+              icon: CupertinoIcons.camera_viewfinder,
+            ),
+            const SizedBox(height: 10),
+            _buildInsightCard(
+              title: 'Аномалии перерасхода ТМЦ',
+              description: 'ИИ выявил 14 случаев завышенного списания индустриального масла И-40 при плановом ТО без прикрепления дефектного акта мастера.',
+              badge: 'Контроль ТМЦ',
+              badgeColor: const Color(0xFFD97706),
+              icon: CupertinoIcons.exclamationmark_triangle_fill,
+            ),
+            const SizedBox(height: 20),
+            const Text('Рекомендации ИИ для смены и руководства:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+            const SizedBox(height: 8),
+            _buildRecommendationCard(
+              number: '1',
+              title: 'Предиктивная замена подшипников КМД-1750',
+              description: 'Рекомендовано провести плановую ревизию опорных узлов через 48 моточасов до возникновения аварийного биения.',
+            ),
+            const SizedBox(height: 8),
+            _buildRecommendationCard(
+              number: '2',
+              title: 'Пополнение складского запаса сальников',
+              description: 'Увеличить неснижаемый запас манжет 45х65 на складе №2 на 15 единиц для исключения задержек аварийных нарядов.',
+            ),
+            const SizedBox(height: 8),
+            _buildRecommendationCard(
+              number: '3',
+              title: 'Усиление ночных смен пятницы',
+              description: 'Привлекать дополнительного электрослесаря КИПиА в ночную смену пятницы для предотвращения перегрузки приводов.',
+            ),
+            const SizedBox(height: 8),
+            _buildRecommendationCard(
+              number: '4',
+              title: 'Индукционный нагрев при монтаже',
+              description: 'Применять индукционный нагреватель подшипников вместо открытого пламени для увеличения межремонтного ресурса посадок на 18%.',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInsightCard({
+    required String title,
+    required String description,
+    required String badge,
+    required Color badgeColor,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: CupertinoColors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 16, color: badgeColor),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: badgeColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                    child: Text(badge, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: badgeColor)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+          const SizedBox(height: 4),
+          Text(description, style: const TextStyle(fontSize: 11, color: Color(0xFF475569), height: 1.3)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecommendationCard({
+    required String number,
+    required String title,
+    required String description,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFBBF7D0)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(color: const Color(0xFF16A34A), borderRadius: BorderRadius.circular(11)),
+            child: Center(child: Text(number, style: const TextStyle(color: CupertinoColors.white, fontSize: 11, fontWeight: FontWeight.bold))),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF14532D))),
+                const SizedBox(height: 2),
+                Text(description, style: const TextStyle(fontSize: 11, color: Color(0xFF166534), height: 1.3)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -974,26 +1438,58 @@ class _MainScreenState extends State<MainScreen> {
                           decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFCBD5E1))),
                         ),
                         const SizedBox(height: 14),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('3. Нормативный срок (SLA):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
                             Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                CupertinoButton(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  color: deadlineMinutes == 120 ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0),
-                                  onPressed: () => setModalState(() => deadlineMinutes = 120),
-                                  child: Text('2 часа', style: TextStyle(fontSize: 11, color: deadlineMinutes == 120 ? CupertinoColors.white : const Color(0xFF475569), fontWeight: FontWeight.bold)),
-                                ),
-                                const SizedBox(width: 6),
-                                CupertinoButton(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  color: deadlineMinutes == 1 ? const Color(0xFFDC2626) : const Color(0xFFE2E8F0),
-                                  onPressed: () => setModalState(() => deadlineMinutes = 1),
-                                  child: Text('1 мин (демо)', style: TextStyle(fontSize: 11, color: deadlineMinutes == 1 ? CupertinoColors.white : const Color(0xFF475569), fontWeight: FontWeight.bold)),
+                                const Text('3. Нормативный срок (SLA):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569))),
+                                Text(
+                                  deadlineMinutes >= 60
+                                      ? '${deadlineMinutes ~/ 60} ч ${deadlineMinutes % 60 > 0 ? '${deadlineMinutes % 60} мин' : ''}'
+                                      : '$deadlineMinutes мин',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
                                 ),
                               ],
+                            ),
+                            const SizedBox(height: 8),
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  {'label': '1 мин (демо)', 'val': 1, 'demo': true},
+                                  {'label': '15 мин', 'val': 15, 'demo': false},
+                                  {'label': '30 мин', 'val': 30, 'demo': false},
+                                  {'label': '1 час', 'val': 60, 'demo': false},
+                                  {'label': '2 часа', 'val': 120, 'demo': false},
+                                  {'label': '4 часа', 'val': 240, 'demo': false},
+                                  {'label': '8 часов', 'val': 480, 'demo': false},
+                                ].map((p) {
+                                  final isSel = deadlineMinutes == p['val'];
+                                  final isDemo = p['demo'] == true;
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 6),
+                                    child: CupertinoButton(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      color: isSel
+                                          ? (isDemo ? const Color(0xFFDC2626) : const Color(0xFF2563EB))
+                                          : (isDemo ? const Color(0xFFFEE2E2) : const Color(0xFFE2E8F0)),
+                                      onPressed: () => setModalState(() => deadlineMinutes = p['val'] as int),
+                                      child: Text(
+                                        p['label'] as String,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: isSel
+                                              ? CupertinoColors.white
+                                              : (isDemo ? const Color(0xFFDC2626) : const Color(0xFF475569)),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
                             ),
                           ],
                         ),
@@ -1153,11 +1649,35 @@ class OrderCardWidget extends StatefulWidget {
 
 class _OrderCardWidgetState extends State<OrderCardWidget> {
   bool _isEvaluating = false;
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final o = widget.order;
     final isWorker = widget.role == 'worker';
+    final isClosed = o.status == 'closed' || o.status == 'completed';
+    final deadline = DateTime.tryParse(o.deadlineAt);
+    final now = DateTime.now();
+    final isOverdue = !isClosed && deadline != null && now.isAfter(deadline);
+    final remainingSeconds = deadline != null ? deadline.difference(now).inSeconds : 0;
+    final overdueMinutes = deadline != null && isOverdue ? now.difference(deadline).inMinutes : 0;
+    if (isOverdue && !o.isOverdue) {
+      o.isOverdue = true;
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -1165,7 +1685,10 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
       decoration: BoxDecoration(
         color: CupertinoColors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: o.isOverdue ? const Color(0xFFFCA5A5) : const Color(0xFFE2E8F0)),
+        border: Border.all(
+          color: isOverdue ? const Color(0xFFDC2626) : const Color(0xFFE2E8F0),
+          width: isOverdue ? 1.5 : 1.0,
+        ),
         boxShadow: const [BoxShadow(color: Color(0x08000000), blurRadius: 8, offset: Offset(0, 2))],
       ),
       child: Column(
@@ -1189,19 +1712,77 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: _statusColor(o.status),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  _statusLabel(o.status),
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: CupertinoColors.white),
-                ),
+              Row(
+                children: [
+                  if (!isClosed && deadline != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      margin: const EdgeInsets.only(right: 6),
+                      decoration: BoxDecoration(
+                        color: isOverdue ? const Color(0xFFDC2626) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isOverdue ? CupertinoIcons.exclamationmark_triangle_fill : CupertinoIcons.time,
+                            size: 11,
+                            color: isOverdue ? CupertinoColors.white : const Color(0xFF2563EB),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isOverdue
+                                ? 'ПРОСРОЧЕН (+$overdueMinutes мин)'
+                                : 'Осталось: ${(remainingSeconds ~/ 60).toString().padLeft(2, '0')}:${(remainingSeconds % 60).toString().padLeft(2, '0')}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: isOverdue ? CupertinoColors.white : const Color(0xFF1E293B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: _statusColor(o.status),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      _statusLabel(o.status),
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: CupertinoColors.white),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
+          if (isOverdue) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFF87171)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(CupertinoIcons.bell_fill, size: 13, color: Color(0xFFDC2626)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'ИИ-Эскалация: норматив SLA превышен на $overdueMinutes мин! Сообщение отправлено мастеру и исполнителю.',
+                      style: const TextStyle(fontSize: 10, color: Color(0xFFB91C1C), fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Text(o.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
           const SizedBox(height: 4),
@@ -1323,7 +1904,7 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          '${o.aiScore}/100 (${o.aiScore >= 90 ? "5/5" : "3.5/5"})',
+                          '${o.aiScore}/100 (${o.aiScore >= 90 ? "5/5" : "2.5/5"})',
                           style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: CupertinoColors.white),
                         ),
                       ),
@@ -1392,10 +1973,390 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
               ),
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: CupertinoButton(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(10),
+              onPressed: () => _showOrderDetailsSheet(context, o),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(CupertinoIcons.doc_text_search, size: 14, color: Color(0xFF2563EB)),
+                  const SizedBox(width: 6),
+                  Text(
+                    o.aiVerdict != null ? 'Паспорт наряда и разбор ИИ (${o.aiScore}/100)' : 'Паспорт наряда и параметры SLA',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF2563EB)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           if (isWorker) _buildWorkerActions(context),
           if (!isWorker) _buildMasterActions(context),
         ],
+      ),
+    );
+  }
+
+  void _showOrderDetailsSheet(BuildContext context, WorkOrderModel o) {
+    showCupertinoModalPopup(
+      context: context,
+      builder: (ctx) => Container(
+        height: MediaQuery.of(context).size.height * 0.90,
+        color: CupertinoColors.white,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Паспорт наряда ${o.number}',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      child: const Icon(CupertinoIcons.xmark_circle_fill, color: Color(0xFF94A3B8)),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: ListView(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(o.title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                            const SizedBox(height: 6),
+                            Text(o.description, style: const TextStyle(fontSize: 12, color: Color(0xFF475569))),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: o.priority == 'emergency' ? const Color(0xFFFEE2E2) : const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    o.priority == 'emergency' ? 'Аварийный ремонт' : 'Плановое ТО',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: o.priority == 'emergency' ? const Color(0xFFDC2626) : const Color(0xFF2563EB),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: _statusColor(o.status),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    _statusLabel(o.status),
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: CupertinoColors.white),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: CupertinoColors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Сведения о выполнении:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                            const SizedBox(height: 8),
+                            _buildDetailRow('Оборудование', o.equipmentName),
+                            _buildDetailRow('Участок / Цех', o.workshopName),
+                            _buildDetailRow('Исполнитель', o.assignedWorkerName),
+                            _buildDetailRow('Мастер смены', 'Сатпаев Е. К. (Старший мастер)'),
+                            _buildDetailRow('Шифр дефекта', o.faultCode ?? 'Не указан'),
+                            _buildDetailRow('Норматив (SLA)', '${o.plannedMinutes ?? 60} мин'),
+                            _buildDetailRow('Фактическое время', o.actualMinutes != null ? '${o.actualMinutes} мин' : 'В работе'),
+                            if (o.materialsSpent != null && o.materialsSpent!.isNotEmpty)
+                              _buildDetailRow('Материалы / ТМЦ', o.materialsSpent!),
+                            if (o.performedWork != null && o.performedWork!.isNotEmpty)
+                              _buildDetailRow('Выполненные работы', o.performedWork!),
+                            if (o.workerComment != null && o.workerComment!.isNotEmpty)
+                              _buildDetailRow('Комментарий рабочего', o.workerComment!),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text('Фотофиксация ремонта:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF0F172A))),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Фото ДО ремонта:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                                const SizedBox(height: 4),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: o.photoBeforeUrl != null
+                                      ? Image.network(
+                                          o.photoBeforeUrl!,
+                                          height: 110,
+                                          width: double.infinity,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) => _noPhotoBox(),
+                                        )
+                                      : _noPhotoBox(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Фото ПОСЛЕ ремонта:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF16A34A))),
+                                const SizedBox(height: 4),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: o.photoAfterUrl != null
+                                      ? Image.network(
+                                          o.photoAfterUrl!,
+                                          height: 110,
+                                          width: double.infinity,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) => _noPhotoBox(),
+                                        )
+                                      : _noPhotoBox(),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: o.aiVerdict == 'approved' ? const Color(0xFFF0FDF4) : (o.aiVerdict == 'rework_needed' ? const Color(0xFFFEF2F2) : const Color(0xFFF8FAFC)),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: o.aiVerdict == 'approved' ? const Color(0xFFBBF7D0) : (o.aiVerdict == 'rework_needed' ? const Color(0xFFFCA5A5) : const Color(0xFFCBD5E1)),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      CupertinoIcons.sparkles,
+                                      size: 16,
+                                      color: o.aiVerdict == 'approved' ? const Color(0xFF16A34A) : (o.aiVerdict == 'rework_needed' ? const Color(0xFFDC2626) : const Color(0xFF2563EB)),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      o.aiVerdict == 'approved'
+                                          ? 'ИИ-ВЕРИФИКАЦИЯ: ПРИНЯТО'
+                                          : (o.aiVerdict == 'rework_needed' ? 'ИИ-ВЕРИФИКАЦИЯ: ДОРАБОТКА' : 'ОЖИДАЕТ ПРОВЕРКИ ИИ'),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: o.aiVerdict == 'approved' ? const Color(0xFF14532D) : (o.aiVerdict == 'rework_needed' ? const Color(0xFF991B1B) : const Color(0xFF1E3A8A)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (o.aiVerdict != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: o.aiVerdict == 'approved' ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      '${o.aiScore}/100 (${o.aiScore >= 90 ? "5/5" : "2.5/5"})',
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: CupertinoColors.white),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              o.aiNotes ?? 'После закрытия наряда ИИ автоматически сверит фотофиксацию ДО/ПОСЛЕ, проверит соответствие ТМЦ и выставит итоговый балл качества.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: o.aiVerdict == 'approved' ? const Color(0xFF166534) : (o.aiVerdict == 'rework_needed' ? const Color(0xFF991B1B) : const Color(0xFF475569)),
+                              ),
+                            ),
+                            if (o.aiVerdict != null) ...[
+                              const SizedBox(height: 10),
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: CupertinoColors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Icon(CupertinoIcons.check_mark_circled_solid, size: 14, color: Color(0xFF16A34A)),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            'Что сделано хорошо: ${o.aiGood ?? "Дефект устранен, СИЗ и регламент LOTO соблюдены."}',
+                                            style: const TextStyle(fontSize: 11, color: Color(0xFF1E293B), fontWeight: FontWeight.w500),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Icon(CupertinoIcons.exclamationmark_triangle_fill, size: 14, color: Color(0xFFD97706)),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            'Что улучшить: ${o.aiImprove ?? "Приложить четкое фото после ремонта и сдать излишки материалов."}',
+                                            style: const TextStyle(fontSize: 11, color: Color(0xFF1E293B), fontWeight: FontWeight.w500),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        const Icon(CupertinoIcons.time_solid, size: 14, color: Color(0xFF2563EB)),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            'Время против норматива: Факт ${o.actualMinutes ?? 42} мин / Норма ${o.plannedMinutes ?? 60} мин ${(o.actualMinutes ?? 42) <= (o.plannedMinutes ?? 60) ? "(в рамках нормы SLA)" : "(превышение SLA)"}',
+                                            style: const TextStyle(fontSize: 11, color: Color(0xFF2563EB), fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      CupertinoButton(
+                        color: const Color(0xFF0F172A),
+                        borderRadius: BorderRadius.circular(10),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        onPressed: () {
+                          showCupertinoDialog(
+                            context: context,
+                            builder: (c) => CupertinoAlertDialog(
+                              title: Text('Наряд-допуск ${o.number}'),
+                              content: Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'АО «Костанайские Минералы»\nУчасток: ${o.workshopName}\nОборудование: ${o.equipmentName}\nИсполнитель: ${o.assignedWorkerName}\nШифр: ${o.faultCode ?? "М-02"}\nНорматив: ${o.plannedMinutes ?? 60} мин\nФакт: ${o.actualMinutes ?? 42} мин\n\nЭлектронная цифровая подпись:\n- Мастер смены: Сатпаев Е. К. [ПОДПИСАНО]\n- Исполнитель: ${o.assignedWorkerName} [ПОДПИСАНО]\n- Валидация ИИ: ${o.aiVerdict == "approved" ? "УСПЕШНО (96/100)" : (o.aiVerdict == "rework_needed" ? "ТРЕБУЕТ ДОРАБОТКИ (48/100)" : "В ОЖИДАНИИ")}\n\nДокумент сформирован и сохранен в реестре комбината.',
+                                ),
+                              ),
+                              actions: [
+                                CupertinoDialogAction(
+                                  child: const Text('Закрыть'),
+                                  onPressed: () => Navigator.pop(c),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(CupertinoIcons.printer, size: 16, color: CupertinoColors.white),
+                            SizedBox(width: 8),
+                            Text('Сформировать акт наряда (PDF)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: CupertinoColors.white)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 130,
+            child: Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+          ),
+          Expanded(
+            child: Text(value, style: const TextStyle(fontSize: 11, color: Color(0xFF0F172A), fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _noPhotoBox() {
+    return Container(
+      height: 110,
+      color: const Color(0xFFF1F5F9),
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(CupertinoIcons.photo, size: 24, color: Color(0xFF94A3B8)),
+            SizedBox(height: 4),
+            Text('Фото отсутствует', style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+          ],
+        ),
       ),
     );
   }
@@ -1458,7 +2419,7 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
           color: const Color(0xFF2563EB),
           padding: const EdgeInsets.symmetric(vertical: 8),
           borderRadius: BorderRadius.circular(10),
-          onPressed: _isEvaluating ? null : () => _showCompleteDialog(context),
+          onPressed: _isEvaluating ? null : _showCompleteDialog,
           child: Text(
             _isEvaluating ? 'Проверка ИИ...' : 'Завершить (фото ПОСЛЕ)',
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
@@ -1490,7 +2451,7 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
     return const SizedBox();
   }
 
-  void _showCompleteDialog(BuildContext context) {
+  void _showCompleteDialog() {
     final o = widget.order;
     String? photoAfterUrl;
     final workCtrl = TextEditingController(text: o.performedWork ?? 'Замена уплотнения сальника, протяжка болтовых соединений, проверка герметичности.');
@@ -1678,37 +2639,61 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
                     ),
                   ),
                   CupertinoButton.filled(
-                    onPressed: () {
+                    onPressed: () async {
                       Navigator.pop(ctx);
                       setState(() => _isEvaluating = true);
-                      Future.delayed(const Duration(seconds: 1), () {
-                        if (withoutPhoto || isExcessMaterials) {
-                          o.status = 'rework_needed';
-                          o.aiVerdict = 'rework_needed';
-                          o.aiScore = 68;
-                          o.aiNotes = 'Требует доработки: отсутствует контрольное фото ПОСЛЕ и списание масла превысило норму в 2.4 раза.';
-                          o.aiGood = 'Работы по механической сборке и протяжке болтов зафиксированы в описании.';
-                          o.aiImprove = 'Приложить четкое фото после устранения дефекта; вернуть неизрасходованный объем масла на склад комбината.';
-                          o.actualMinutes = 75;
-                          o.plannedMinutes = 60;
-                        } else {
-                          o.status = 'completed';
-                          o.aiVerdict = 'approved';
-                          o.aiScore = 96;
-                          o.aiNotes = 'Работы приняты: фото подтвердило отсутствие течи, СИЗ надеты, списание ТМЦ обосновано.';
-                          o.aiGood = 'Течь масла устранена на 100%. Узел очищен, соосность в норме. Регламент LOTO и ношение СИЗ соблюдены.';
-                          o.aiImprove = 'В следующий раз указывать величину проверочного зазора щупом в комментарии.';
-                          o.actualMinutes = 42;
-                          o.plannedMinutes = 60;
-                          o.photoAfterUrl = photoAfterUrl ?? 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80';
-                        }
-                        o.faultCode = selectedFault;
-                        o.materialsSpent = matCtrl.text;
-                        o.workerComment = commentCtrl.text;
-                        o.performedWork = workCtrl.text;
-                        setState(() => _isEvaluating = false);
-                        widget.onUpdate(o);
-                      });
+                      await Future.delayed(const Duration(seconds: 1));
+                      if (!context.mounted) return;
+                      final hasNoPhoto = withoutPhoto || photoAfterUrl == null;
+                      if (hasNoPhoto || isExcessMaterials) {
+                        o.status = 'rework_needed';
+                        o.aiVerdict = 'rework_needed';
+                        o.aiScore = 48;
+                        o.aiNotes = 'Требует доработки: Отсутствует контрольное фото ПОСЛЕ ремонта и списание масла И-40 превысило норму в 2.4 раза без дефектного акта.';
+                        o.aiGood = 'Работы по механической переборке узла и протяжке болтов зафиксированы в описании.';
+                        o.aiImprove = '1. Приложить обязательное фото после устранения дефекта. 2. Вернуть неизрасходованный объем масла на склад комбината.';
+                        o.actualMinutes = 75;
+                        o.plannedMinutes = 60;
+                        o.photoAfterUrl = null;
+                      } else {
+                        o.status = 'completed';
+                        o.aiVerdict = 'approved';
+                        o.aiScore = 96;
+                        o.aiNotes = 'Работы приняты: фото подтвердило отсутствие течи, СИЗ надеты, списание ТМЦ строго обосновано по нормативу.';
+                        o.aiGood = 'Течь масла устранена на 100%. Узел очищен, соосность в норме. Регламент LOTO и ношение СИЗ соблюдены.';
+                        o.aiImprove = 'В следующий раз указывать величину проверочного зазора щупом в комментарии.';
+                        o.actualMinutes = 42;
+                        o.plannedMinutes = 60;
+                        o.photoAfterUrl = photoAfterUrl ?? 'https://images.unsplash.com/photo-1581092335397-9583fe92d232?auto=format&fit=crop&w=600&q=80';
+                      }
+                      o.faultCode = selectedFault;
+                      o.materialsSpent = matCtrl.text;
+                      o.workerComment = commentCtrl.text;
+                      o.performedWork = workCtrl.text;
+                      setState(() => _isEvaluating = false);
+                      widget.onUpdate(o);
+
+                      if (!context.mounted) return;
+                      showCupertinoDialog(
+                        context: context,
+                        builder: (c) => CupertinoAlertDialog(
+                          title: Text(o.aiVerdict == 'approved' ? 'ИИ-Контроль: Работы приняты' : 'ИИ-Контроль: Требует доработки'),
+                          content: Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              o.aiVerdict == 'approved'
+                                  ? 'Оценка: 96/100 (5/5)\n\nИИ проверил фото ПОСЛЕ ремонта, нормы расхода ТМЦ и время SLA.\n\nНаряд передан старшему мастеру на утверждение.'
+                                  : 'Оценка: 48/100 (2.5/5)\n\nИИ отклонил наряд:\n- Отсутствует фото ПОСЛЕ ремонта\n- Выявлен перерасход материалов без акта\n\nНаряд возвращен исполнителю на доработку.',
+                            ),
+                          ),
+                          actions: [
+                            CupertinoDialogAction(
+                              child: const Text('Понятно'),
+                              onPressed: () => Navigator.pop(c),
+                            ),
+                          ],
+                        ),
+                      );
                     },
                     borderRadius: BorderRadius.circular(12),
                     child: const Text('Сдать на проверку ИИ', style: TextStyle(fontWeight: FontWeight.bold)),
