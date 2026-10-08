@@ -169,8 +169,8 @@ class WorkOrderModel {
     equipmentName: json['equipmentName'] ?? json['equipment_name'] ?? 'Оборудование цеха',
     workshopName: json['workshopName'] ?? 'Дробильно-обогатительный комплекс',
     priority: json['priority'] ?? 'normal',
-    createdAt: json['createdAt'] ?? json['created_at'] ?? DateTime.now().toIso8601String(),
-    deadlineAt: json['deadlineAt'] ?? json['deadline_at'] ?? DateTime.now().toIso8601String(),
+    createdAt: json['createdAt'] ?? json['created_at'] ?? DateTime.now().toUtc().toIso8601String(),
+    deadlineAt: json['deadlineAt'] ?? json['deadline_at'] ?? DateTime.now().toUtc().toIso8601String(),
     status: json['status'] ?? 'issued',
     assignedWorkerId: json['assignedWorkerId'] ?? json['assigned_worker_id'] ?? 'emp_1',
     assignedWorkerName: json['assignedWorkerName'] ?? json['assigned_worker_name'] ?? 'Ахметов Ербол',
@@ -462,10 +462,10 @@ class _MainScreenState extends State<MainScreen> {
     _setupSupabaseRealtime();
     _fetchOrdersFromSupabase();
     _deadlineTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      final now = DateTime.now();
+      final now = DateTime.now().toUtc();
       for (final o in _orders) {
         if (o.status != 'completed' && o.status != 'closed') {
-          final deadline = DateTime.tryParse(o.deadlineAt);
+          final deadline = DateTime.tryParse(o.deadlineAt)?.toUtc();
           if (deadline != null && now.isAfter(deadline) && !o.isOverdue) {
             final diff = now.difference(deadline).inMinutes;
             final overdueMins = diff > 0 ? diff : 1;
@@ -513,8 +513,8 @@ class _MainScreenState extends State<MainScreen> {
         equipmentName: 'Дробилка конусная КМД-1750Т',
         workshopName: 'Участок дробления',
         priority: 'emergency',
-        createdAt: DateTime.now().subtract(const Duration(minutes: 55)).toIso8601String(),
-        deadlineAt: DateTime.now().subtract(const Duration(minutes: 10)).toIso8601String(),
+        createdAt: DateTime.now().toUtc().subtract(const Duration(minutes: 55)).toIso8601String(),
+        deadlineAt: DateTime.now().toUtc().subtract(const Duration(minutes: 10)).toIso8601String(),
         status: 'in_progress',
         assignedWorkerId: 'emp_2',
         assignedWorkerName: 'Дуйсенов Серик Болатович',
@@ -530,8 +530,8 @@ class _MainScreenState extends State<MainScreen> {
         equipmentName: 'Насос шламовый 1ГрТ 400/40',
         workshopName: 'Участок обогащения',
         priority: 'high',
-        createdAt: DateTime.now().subtract(const Duration(minutes: 25)).toIso8601String(),
-        deadlineAt: DateTime.now().add(const Duration(minutes: 65)).toIso8601String(),
+        createdAt: DateTime.now().toUtc().subtract(const Duration(minutes: 25)).toIso8601String(),
+        deadlineAt: DateTime.now().toUtc().add(const Duration(minutes: 65)).toIso8601String(),
         status: 'in_progress',
         assignedWorkerId: 'emp_7',
         assignedWorkerName: 'Васильев Олег Петрович',
@@ -546,8 +546,8 @@ class _MainScreenState extends State<MainScreen> {
         equipmentName: 'Насос шламовый 1ГрТ 400/40',
         workshopName: 'Участок обогащения',
         priority: 'emergency',
-        createdAt: DateTime.now().subtract(const Duration(hours: 3)).toIso8601String(),
-        deadlineAt: DateTime.now().subtract(const Duration(hours: 1)).toIso8601String(),
+        createdAt: DateTime.now().toUtc().subtract(const Duration(hours: 3)).toIso8601String(),
+        deadlineAt: DateTime.now().toUtc().subtract(const Duration(hours: 1)).toIso8601String(),
         status: 'completed',
         assignedWorkerId: 'emp_1',
         assignedWorkerName: 'Ахметов Ербол Каиржанович',
@@ -573,8 +573,8 @@ class _MainScreenState extends State<MainScreen> {
         equipmentName: 'Грохот инерционный ГИТ-51М',
         workshopName: 'Участок грохочения',
         priority: 'high',
-        createdAt: DateTime.now().subtract(const Duration(hours: 4)).toIso8601String(),
-        deadlineAt: DateTime.now().subtract(const Duration(hours: 2)).toIso8601String(),
+        createdAt: DateTime.now().toUtc().subtract(const Duration(hours: 4)).toIso8601String(),
+        deadlineAt: DateTime.now().toUtc().subtract(const Duration(hours: 2)).toIso8601String(),
         status: 'completed',
         assignedWorkerId: 'emp_2',
         assignedWorkerName: 'Дуйсенов Серик Болатович',
@@ -600,8 +600,8 @@ class _MainScreenState extends State<MainScreen> {
         equipmentName: 'Питатель пластинчатый ПП-1-15',
         workshopName: 'Участок дробления',
         priority: 'emergency',
-        createdAt: DateTime.now().subtract(const Duration(hours: 5)).toIso8601String(),
-        deadlineAt: DateTime.now().subtract(const Duration(hours: 3)).toIso8601String(),
+        createdAt: DateTime.now().toUtc().subtract(const Duration(hours: 5)).toIso8601String(),
+        deadlineAt: DateTime.now().toUtc().subtract(const Duration(hours: 3)).toIso8601String(),
         status: 'rework_needed',
         assignedWorkerId: 'emp_4',
         assignedWorkerName: 'Токаев Марат Жасланович',
@@ -1593,8 +1593,8 @@ class _MainScreenState extends State<MainScreen> {
                         equipmentName: selectedEq,
                         workshopName: 'Участок обогащения',
                         priority: selectedPriority,
-                        createdAt: DateTime.now().toIso8601String(),
-                        deadlineAt: DateTime.now().add(Duration(minutes: deadlineMinutes)).toIso8601String(),
+                        createdAt: DateTime.now().toUtc().toIso8601String(),
+                        deadlineAt: DateTime.now().toUtc().add(Duration(minutes: deadlineMinutes)).toIso8601String(),
                         status: 'issued',
                         assignedWorkerId: assigned.id,
                         assignedWorkerName: assigned.fullName,
@@ -1670,11 +1670,11 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
     final o = widget.order;
     final isWorker = widget.role == 'worker';
     final isClosed = o.status == 'closed' || o.status == 'completed';
-    final deadline = DateTime.tryParse(o.deadlineAt);
-    final now = DateTime.now();
-    final isOverdue = !isClosed && deadline != null && now.isAfter(deadline);
-    final remainingSeconds = deadline != null ? deadline.difference(now).inSeconds : 0;
-    final overdueMinutes = deadline != null && isOverdue ? now.difference(deadline).inMinutes : 0;
+    final deadline = DateTime.tryParse(o.deadlineAt)?.toUtc();
+    final now = DateTime.now().toUtc();
+    final isOverdue = !isClosed && (o.isOverdue || (deadline != null && now.isAfter(deadline)));
+    final remainingSeconds = deadline != null && !isOverdue ? deadline.difference(now).inSeconds : 0;
+    final overdueMinutes = deadline != null && isOverdue ? (now.difference(deadline).inMinutes > 0 ? now.difference(deadline).inMinutes : 1) : 0;
     if (isOverdue && !o.isOverdue) {
       o.isOverdue = true;
     }
@@ -1734,7 +1734,9 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
                           Text(
                             isOverdue
                                 ? 'ПРОСРОЧЕН (+$overdueMinutes мин)'
-                                : 'Осталось: ${(remainingSeconds ~/ 60).toString().padLeft(2, '0')}:${(remainingSeconds % 60).toString().padLeft(2, '0')}',
+                                : (remainingSeconds >= 3600
+                                    ? 'Осталось: ${remainingSeconds ~/ 3600} ч ${((remainingSeconds % 3600) ~/ 60).toString().padLeft(2, '0')} мин'
+                                    : 'Осталось: ${(remainingSeconds ~/ 60).toString().padLeft(2, '0')}:${(remainingSeconds % 60).toString().padLeft(2, '0')}'),
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
