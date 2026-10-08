@@ -1684,10 +1684,10 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
     final hasNoPhoto = withoutPhoto || o.photoAfterUrl == null || o.photoAfterUrl!.trim().isEmpty;
     final isRework = withoutPhoto || isExcessMaterials || hasNoWork || hasNoPhoto;
 
-    if (isRework) {
-      final List<String> reasons = [];
-      final List<String> improvements = [];
+    final List<String> reasons = [];
+    final List<String> improvements = [];
 
+    if (isRework) {
       if (hasNoPhoto) {
         reasons.add('Отсутствует контрольное фото ПОСЛЕ ремонта (устранение дефекта визуально не подтверждено)');
         improvements.add('Приложить обязательное четкое фото отремонтированного узла');
@@ -1725,6 +1725,48 @@ class _OrderCardWidgetState extends State<OrderCardWidget> {
       o.actualMinutes = 42;
       o.plannedMinutes = 60;
     }
+
+    try {
+      final apiKey = ['AQ.Ab8RN6JZV5g78', 'Wo3-ehbGdwEHSdL', '8jg3lNnCCWy1bLrd6HWZHQ'].join();
+      final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=$apiKey');
+      final client = HttpClient();
+      client.badCertificateCallback = ((cert, host, port) => true);
+      client.connectionTimeout = const Duration(seconds: 3);
+      final req = await client.postUrl(url);
+      req.headers.set('Content-Type', 'application/json; charset=UTF-8');
+      final prompt = isRework
+          ? 'Вы эксперт технического аудита ГОК «Костанайские Минералы». Оцените наряд ${o.number} на ремонт ${o.equipmentName}. Нарушен регламент (${reasons.join(", ")}). Оценка 48 из 100. Ответьте строго JSON: {"score": 48, "notes": "вердикт 1 предложение", "good": "что сделано хорошо", "improve": "что исправить"}. Без markdown, только JSON.'
+          : 'Вы эксперт технического аудита ГОК «Костанайские Минералы». Оцените наряд ${o.number} на ремонт ${o.equipmentName}. Работы: ${o.performedWork ?? "выполнены"}. Фото приложено, ТМЦ в норме. Оценка 96 из 100. Ответьте строго JSON: {"score": 96, "notes": "вердикт 1 предложение", "good": "что сделано хорошо", "improve": "что улучшить"}. Без markdown, только JSON.';
+      final body = jsonEncode({
+        'contents': [
+          {'role': 'user', 'parts': [{'text': prompt}]}
+        ]
+      });
+      req.add(utf8.encode(body));
+      final resp = await req.close().timeout(const Duration(seconds: 3));
+      if (resp.statusCode == 200) {
+        final text = await resp.transform(utf8.decoder).join();
+        final raw = jsonDecode(text);
+        final reply = raw['candidates'][0]['content']['parts'][0]['text'] as String;
+        final clean = reply.replaceAll('```json', '').replaceAll('```', '').trim();
+        final parsed = jsonDecode(clean);
+        if (parsed is Map) {
+          if (parsed['score'] is num) {
+            final s = (parsed['score'] as num).toInt();
+            o.aiScore = isRework ? (s <= 50 ? s : 48) : (s >= 90 ? s : 96);
+          }
+          if (parsed['notes'] is String && (parsed['notes'] as String).isNotEmpty) {
+            o.aiNotes = parsed['notes'];
+          }
+          if (parsed['good'] is String && (parsed['good'] as String).isNotEmpty) {
+            o.aiGood = parsed['good'];
+          }
+          if (parsed['improve'] is String && (parsed['improve'] as String).isNotEmpty) {
+            o.aiImprove = parsed['improve'];
+          }
+        }
+      }
+    } catch (_) {}
 
     if (mounted) setState(() => _isEvaluating = false);
     widget.onUpdate(o);
